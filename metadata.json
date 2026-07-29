@@ -1,0 +1,6 @@
+{
+  "name": "Welcome to My SaaS",
+  "description": "SaaS landing page featuring user authentication with Supabase, including Sign In, Sign Up, and session state tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
