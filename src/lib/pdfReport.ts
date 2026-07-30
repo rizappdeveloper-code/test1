@@ -34,6 +34,7 @@ function createPdfContainer(widthPx: number): HTMLDivElement {
   container.style.pointerEvents = 'none';
   container.style.width = `${widthPx}px`;
   container.style.backgroundColor = '#ffffff';
+  container.style.color = '#1e293b';
   container.style.padding = '30px';
   container.style.fontFamily = 'Arial, sans-serif';
   return container;
@@ -132,7 +133,15 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
   document.body.appendChild(container);
 
   try {
-    const canvas = await html2canvas(container, { scale: 2, useCORS: true, allowTaint: true });
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      onclone: (clonedDoc) => {
+        const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+        styleElements.forEach((el) => el.remove());
+      },
+    });
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new jsPDF('landscape', 'mm', 'a4');
     const imgProps = pdf.getImageProperties(imgData);
@@ -263,7 +272,15 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
   document.body.appendChild(container);
 
   try {
-    const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, allowTaint: true });
+    const canvas = await html2canvas(container, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: true,
+      onclone: (clonedDoc) => {
+        const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+        styleElements.forEach((el) => el.remove());
+      },
+    });
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new jsPDF('landscape', 'mm', 'a4');
     const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -362,7 +379,15 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
   document.body.appendChild(container);
 
   try {
-    const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, allowTaint: true });
+    const canvas = await html2canvas(container, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: true,
+      onclone: (clonedDoc) => {
+        const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+        styleElements.forEach((el) => el.remove());
+      },
+    });
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new jsPDF('landscape', 'mm', 'a4');
     const pdfWidth = pdf.internal.pageSize.getWidth();
