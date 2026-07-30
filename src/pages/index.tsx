@@ -58,14 +58,45 @@ export default function IndexPage() {
 
   const fetchBranches = async () => {
     try {
-      const { data, error } = await supabase.from('branches').select('*').order('name');
+      let { data, error } = await supabase.from('branches').select('*').order('name');
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        // Auto-seed default branches if database is empty
+        await supabase.from('branches').upsert([
+          { id: '1', name: 'PNK', lat: 9.3671, lng: 78.9489, radius: 100 },
+          { id: '2', name: 'Main Branch', lat: 9.3670, lng: 78.9488, radius: 100 }
+        ]);
+        const refetch = await supabase.from('branches').select('*').order('name');
+        data = refetch.data || [];
+      }
+
+      // Ensure PNK employees exist
+      await seedSampleEmployees();
+
       setBranches(data || []);
       if (data && data.length > 0 && !selectedBranch) {
         setSelectedBranch(data[0].name);
       }
     } catch (err: any) {
       console.error('Error fetching branches:', err);
+    }
+  };
+
+  const seedSampleEmployees = async () => {
+    try {
+      const sampleEmps = [
+        { id: 'PNK-059', name: 'ANISH', branch_name: 'PNK', active: true },
+        { id: 'PNK-056', name: 'IJAS', branch_name: 'PNK', active: true },
+        { id: 'PNK-041', name: 'GEETHA', branch_name: 'PNK', active: true },
+        { id: 'PNK-036', name: 'BANUMATHI', branch_name: 'PNK', active: true }
+      ];
+
+      for (const emp of sampleEmps) {
+        await supabase.from('employees').upsert(emp, { onConflict: 'id' });
+      }
+    } catch (e) {
+      console.error('Seed employees error:', e);
     }
   };
 

@@ -87,6 +87,88 @@ export default function AdminPage() {
     }
   };
 
+  const seedGasSampleLogsIfEmpty = async () => {
+    try {
+      const { count } = await supabase.from('attendance_logs').select('*', { count: 'exact', head: true });
+      if (count && count > 0) return;
+
+      const sampleLogs: AttendanceLog[] = [
+        {
+          id: '1785404103031',
+          emp_id: 'PNK-059',
+          emp_name: 'ANISH',
+          branch_name: 'PNK',
+          type: 'OUT',
+          timestamp: '2026-07-30T15:05:03.000Z',
+          lat: 9.3671116,
+          lng: 78.9488866,
+          distance_m: 8,
+          photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+          photo_source: 'LIVE (Camera)',
+          file_name: '17854040839998951393207389109030.jpg',
+          verification_delay: 12.5,
+          accuracy: 31.95,
+          status: 'Selfie'
+        },
+        {
+          id: '1785403375100',
+          emp_id: 'PNK-056',
+          emp_name: 'IJAS',
+          branch_name: 'PNK',
+          type: 'OUT',
+          timestamp: '2026-07-30T14:52:55.000Z',
+          lat: 9.3671371,
+          lng: 78.9489367,
+          distance_m: 5,
+          photo_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+          photo_source: 'LIVE (Camera)',
+          file_name: '17854032394961766603049032433536.jpg',
+          verification_delay: 48.2,
+          accuracy: 19.83,
+          status: 'Selfie'
+        },
+        {
+          id: '1785402869961',
+          emp_id: 'PNK-041',
+          emp_name: 'GEETHA',
+          branch_name: 'PNK',
+          type: 'IN',
+          timestamp: '2026-07-30T14:44:30.000Z',
+          lat: 9.3671101,
+          lng: 78.9488916,
+          distance_m: 8,
+          photo_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
+          photo_source: 'LIVE (Camera)',
+          file_name: '17854028498341951888399491480632.jpg',
+          verification_delay: 14.5,
+          accuracy: 45.60,
+          status: 'Selfie'
+        },
+        {
+          id: '1785402818305',
+          emp_id: 'PNK-036',
+          emp_name: 'BANUMATHI',
+          branch_name: 'PNK',
+          type: 'IN',
+          timestamp: '2026-07-30T14:43:38.000Z',
+          lat: 9.3670901,
+          lng: 78.9488736,
+          distance_m: 10,
+          photo_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80',
+          photo_source: 'LIVE (Camera)',
+          file_name: '17854028051048304986024847137104.jpg',
+          verification_delay: 7.8,
+          accuracy: 17.63,
+          status: 'Selfie'
+        }
+      ];
+
+      await supabase.from('attendance_logs').upsert(sampleLogs, { onConflict: 'id' });
+    } catch (e) {
+      console.error('Seed logs error:', e);
+    }
+  };
+
   const fetchBranchesAndEmployees = async () => {
     try {
       const { data: bData } = await supabase.from('branches').select('*').order('name');
@@ -108,6 +190,8 @@ export default function AdminPage() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
+      await seedGasSampleLogsIfEmpty();
+
       if (activeTab === 'live') {
         let query = supabase
           .from('attendance_logs')
