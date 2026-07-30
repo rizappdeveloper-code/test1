@@ -58,20 +58,69 @@ async function getOrCreateSelfiesFolder(drive: ReturnType<typeof google.drive>) 
   }
 }
 
-// API Route: Check Drive Integration Status
+// API Route: Check Drive Integration Status & Get Folder Link
 app.get('/api/drive-status', async (req, res) => {
+  const fallbackSearchUrl = 'https://drive.google.com/drive/search?q=AQSA%20Attendance%20Selfies';
   try {
     const drive = getDriveClient(req);
     const about = await drive.about.get({ fields: 'user' });
+    
+    let folderId = null;
+    let folderUrl = fallbackSearchUrl;
+    try {
+      folderId = await getOrCreateSelfiesFolder(drive);
+      if (folderId) {
+        folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
+      }
+    } catch (e) {
+      console.warn('Could not fetch folder link:', e);
+    }
+
     res.json({
       connected: true,
       user: about.data.user,
+      folderId,
+      folderUrl,
+      folderName: 'AQSA Attendance Selfies',
     });
   } catch (err: any) {
     res.json({
       connected: false,
+      folderUrl: fallbackSearchUrl,
       error: err.message || 'Google Drive not connected',
     });
+  }
+});
+
+// API Route: Get Folder Link and files
+app.get('/api/drive-folder', async (req, res) => {
+  try {
+    const drive = getDriveClient(req);
+    const folderId = await getOrCreateSelfiesFolder(drive);
+    
+    if (!folderId) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    const folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
+
+    // List recent files in folder
+    const filesList = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: 'files(id, name, webViewLink, createdTime)',
+      pageSize: 20,
+      orderBy: 'createdTime desc',
+    });
+
+    res.json({
+      success: true,
+      folderId,
+      folderUrl,
+      folderName: 'AQSA Attendance Selfies',
+      files: filesList.data.files || [],
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
