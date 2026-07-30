@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { AttendanceLog, Branch, DailySummaryRow, MonthlySummaryRow, Employee } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { generateFormattedPDF, generateSelfiePDF, generateLiveSelfiePDF } from '../lib/pdfReport';
 import { 
   ShieldCheck, 
   Lock, 
@@ -394,6 +395,42 @@ export default function AdminPage() {
     doc.save(`AQSA_Attendance_${activeTab}_${selectedDate}.pdf`);
   };
 
+  // GAS Matching Formatted PDF Report
+  const handleDownloadFormattedPDF = async () => {
+    setLoading(true);
+    try {
+      await generateFormattedPDF(filteredSummaryRows, selectedDate);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // GAS Matching PDF with Selfie Proofs
+  const handleDownloadSelfiePDF = async () => {
+    setLoading(true);
+    try {
+      await generateSelfiePDF(filteredSummaryRows, selectedDate);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // GAS Matching Live Selfie PDF
+  const handleDownloadLiveSelfiePDF = async () => {
+    setLoading(true);
+    try {
+      await generateLiveSelfiePDF(filteredLiveLogs, selectedDate);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Print View for Selfie Reports
   const handlePrintSelfieReport = () => {
     window.print();
@@ -609,19 +646,27 @@ export default function AdminPage() {
         </button>
 
         <button
-          onClick={handleDownloadPDF}
+          onClick={handleDownloadFormattedPDF}
           className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>Download Tabular PDF</span>
+          <span>Official Formatted PDF</span>
         </button>
 
         <button
-          onClick={handlePrintSelfieReport}
+          onClick={handleDownloadSelfiePDF}
+          className="py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+        >
+          <Camera className="w-3.5 h-3.5" />
+          <span>PDF with Selfie Proofs</span>
+        </button>
+
+        <button
+          onClick={handleDownloadLiveSelfiePDF}
           className="py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
         >
-          <Printer className="w-3.5 h-3.5" />
-          <span>Print Report with Selfies</span>
+          <Camera className="w-3.5 h-3.5" />
+          <span>Live Selfie PDF</span>
         </button>
       </div>
 
