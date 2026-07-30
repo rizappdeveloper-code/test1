@@ -335,7 +335,28 @@ export default function IndexPage() {
         }
       }
 
-      // 3. Save Valid Attendance Punch to Supabase
+      // 3. Upload Selfie to Google Drive
+      let finalPhotoUrl = photoDataUrl;
+      try {
+        const driveRes = await fetch('/api/upload-selfie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: photoDataUrl,
+            fileName: fileName || `${employeeInfo.id}_${Date.now()}.jpg`,
+            empId: employeeInfo.id,
+            empName: employeeInfo.name,
+          }),
+        });
+        const driveJson = await driveRes.json();
+        if (driveJson.success && driveJson.driveUrl) {
+          finalPhotoUrl = driveJson.driveUrl;
+        }
+      } catch (uploadErr) {
+        console.warn('Drive upload fallback:', uploadErr);
+      }
+
+      // 4. Save Valid Attendance Punch to Database
       const { error: insertError } = await supabase.from('attendance_logs').insert([
         {
           emp_id: employeeInfo.id,
@@ -346,7 +367,7 @@ export default function IndexPage() {
           lat: coords.lat,
           lng: coords.lng,
           distance_m: Math.round(calcDist),
-          photo_url: photoDataUrl,
+          photo_url: finalPhotoUrl,
           photo_source: photoSource,
           file_name: fileName,
           verification_delay: verificationDelay,
