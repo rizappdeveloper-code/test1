@@ -7,29 +7,41 @@ async function toDataURL(url: string): Promise<string> {
   if (!url) return '';
   if (url.startsWith('data:')) return url;
   try {
-    const res = await fetch(url, { mode: 'cors' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(url, { mode: 'cors', signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return '';
     const blob = await res.blob();
     return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(url);
+      reader.onloadend = () => resolve((reader.result as string) || '');
+      reader.onerror = () => resolve('');
       reader.readAsDataURL(blob);
     });
   } catch (e) {
-    return url;
+    return '';
   }
+}
+
+function createPdfContainer(widthPx: number): HTMLDivElement {
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.top = '0';
+  container.style.left = '0';
+  container.style.zIndex = '-99999';
+  container.style.opacity = '0.01';
+  container.style.pointerEvents = 'none';
+  container.style.width = `${widthPx}px`;
+  container.style.backgroundColor = '#ffffff';
+  container.style.padding = '30px';
+  container.style.fontFamily = 'Arial, sans-serif';
+  return container;
 }
 
 // 1. Generate Standard Formatted Summary PDF (Matching GAS generateFormattedPDF)
 export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: string) {
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '-9999px';
-  container.style.width = '1050px';
-  container.style.backgroundColor = '#ffffff';
-  container.style.padding = '30px';
-  container.style.fontFamily = 'Arial, sans-serif';
+  const container = createPdfContainer(1050);
 
   let html = `
     <div style="border-bottom: 4px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px;">
@@ -119,29 +131,26 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  const canvas = await html2canvas(container, { scale: 2, useCORS: true });
-  document.body.removeChild(container);
+  try {
+    const canvas = await html2canvas(container, { scale: 2, useCORS: true, allowTaint: true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF('landscape', 'mm', 'a4');
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
-  const pdf = new jsPDF('landscape', 'mm', 'a4');
-  const imgProps = pdf.getImageProperties(imgData);
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-  pdf.save(`AQSA_Daily_Summary_${dateStr}.pdf`);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`AQSA_Daily_Summary_${dateStr}.pdf`);
+  } finally {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  }
 }
 
 // 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies)
 export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '-9999px';
-  container.style.width = '1100px';
-  container.style.backgroundColor = '#ffffff';
-  container.style.padding = '30px';
-  container.style.fontFamily = 'Arial, sans-serif';
+  const container = createPdfContainer(1100);
 
   // Pre-convert images
   const processRows = await Promise.all(
@@ -253,28 +262,25 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  const canvas = await html2canvas(container, { scale: 1.5, useCORS: true });
-  document.body.removeChild(container);
+  try {
+    const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, allowTaint: true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF('landscape', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
-  const pdf = new jsPDF('landscape', 'mm', 'a4');
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-  pdf.save(`AQSA_Verification_Selfie_Report_${dateStr}.pdf`);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`AQSA_Verification_Selfie_Report_${dateStr}.pdf`);
+  } finally {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  }
 }
 
 // 3. Generate Live Punch Verification PDF with Selfies (Matching GAS downloadFilteredLivePDFWithSelfies)
 export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: string) {
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '-9999px';
-  container.style.width = '1050px';
-  container.style.backgroundColor = '#ffffff';
-  container.style.padding = '30px';
-  container.style.fontFamily = 'Arial, sans-serif';
+  const container = createPdfContainer(1050);
 
   const processLogs = await Promise.all(
     data.map(async (l) => ({
@@ -355,14 +361,18 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  const canvas = await html2canvas(container, { scale: 1.5, useCORS: true });
-  document.body.removeChild(container);
+  try {
+    const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, allowTaint: true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF('landscape', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
-  const pdf = new jsPDF('landscape', 'mm', 'a4');
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-  pdf.save(`AQSA_Live_Selfie_Report_${dateStr}.pdf`);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`AQSA_Live_Selfie_Report_${dateStr}.pdf`);
+  } finally {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  }
 }

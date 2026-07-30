@@ -395,13 +395,130 @@ export default function AdminPage() {
     doc.save(`AQSA_Attendance_${activeTab}_${selectedDate}.pdf`);
   };
 
+  // Helper to fetch summary data on demand for PDF reports regardless of current tab
+  const getSummaryDataForPDF = async () => {
+    if (summaryRows.length > 0 && activeTab === 'summary') {
+      return filteredSummaryRows;
+    }
+    const start = `${selectedDate}T00:00:00.000Z`;
+    const end = `${selectedDate}T23:59:59.999Z`;
+
+    let query = supabase
+      .from('attendance_logs')
+      .select('*')
+      .neq('type', 'REJECTED')
+      .gte('timestamp', start)
+      .lte('timestamp', end)
+      .order('timestamp', { ascending: true });
+
+    if (selectedBranch) {
+      query = query.eq('branch_name', selectedBranch);
+    }
+
+    const { data: logs } = await query;
+    const empMap: { [key: string]: AttendanceLog[] } = {};
+    (logs || []).forEach((l) => {
+      if (!empMap[l.emp_id]) empMap[l.emp_id] = [];
+      empMap[l.emp_id].push(l);
+    });
+
+    const relevantEmployees = selectedBranch
+      ? allEmployees.filter((e) => e.branch_name === selectedBranch)
+      : allEmployees;
+
+    return relevantEmployees
+      .filter((emp) => !selectedEmpFilter || emp.id === selectedEmpFilter)
+      .map((emp) => {
+        const empLogs = empMap[emp.id] || [];
+        const inPunches = empLogs.filter((p) => p.type === 'IN');
+        const outPunches = empLogs.filter((p) => p.type === 'OUT');
+
+        let totalMs = 0;
+        for (let i = 0; i < Math.min(inPunches.length, outPunches.length); i++) {
+          const inTime = new Date(inPunches[i].timestamp).getTime();
+          const outTime = new Date(outPunches[i].timestamp).getTime();
+          if (outTime > inTime) totalMs += outTime - inTime;
+        }
+
+        const hours = Number((totalMs / (1000 * 60 * 60)).toFixed(2));
+        const ot = Number(Math.max(0, hours - 11).toFixed(2));
+
+        let status = 'Absent';
+        if (empLogs.length > 0) {
+          status = inPunches.length > outPunches.length ? 'Missing OUT' : 'Present';
+        }
+
+        return {
+          date: selectedDate,
+          empId: emp.id,
+          name: emp.name,
+          branch: emp.branch_name,
+          in1: inPunches[0] ? new Date(inPunches[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          out1: outPunches[0] ? new Date(outPunches[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          in2: inPunches[1] ? new Date(inPunches[1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          out2: outPunches[1] ? new Date(outPunches[1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          in3: inPunches[2] ? new Date(inPunches[2].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          out3: outPunches[2] ? new Date(outPunches[2].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          in4: inPunches[3] ? new Date(inPunches[3].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          out4: outPunches[3] ? new Date(outPunches[3].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          in5: inPunches[4] ? new Date(inPunches[4].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          out5: outPunches[4] ? new Date(outPunches[4].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          in1Photo: inPunches[0]?.photo_url || '',
+          out1Photo: outPunches[0]?.photo_url || '',
+          in2Photo: inPunches[1]?.photo_url || '',
+          out2Photo: outPunches[1]?.photo_url || '',
+          in3Photo: inPunches[2]?.photo_url || '',
+          out3Photo: outPunches[2]?.photo_url || '',
+          in4Photo: inPunches[3]?.photo_url || '',
+          out4Photo: outPunches[3]?.photo_url || '',
+          in5Photo: inPunches[4]?.photo_url || '',
+          out5Photo: outPunches[4]?.photo_url || '',
+          totalHours: hours.toFixed(2),
+          ot: ot.toFixed(2),
+          status,
+        };
+      });
+  };
+
+  // Helper to fetch live logs on demand for Live Selfie PDF
+  const getLiveLogsForPDF = async () => {
+    if (liveLogs.length > 0 && activeTab === 'live') {
+      return filteredLiveLogs;
+    }
+    const start = `${selectedDate}T00:00:00.000Z`;
+    const end = `${selectedDate}T23:59:59.999Z`;
+
+    let query = supabase
+      .from('attendance_logs')
+      .select('*')
+      .gte('timestamp', start)
+      .lte('timestamp', end)
+      .order('timestamp', { ascending: false });
+
+    if (selectedBranch) {
+      query = query.eq('branch_name', selectedBranch);
+    }
+    if (selectedEmpFilter) {
+      query = query.eq('emp_id', selectedEmpFilter);
+    }
+
+    const { data } = await query;
+    return data || [];
+  };
+
   // GAS Matching Formatted PDF Report
   const handleDownloadFormattedPDF = async () => {
     setLoading(true);
     try {
-      await generateFormattedPDF(filteredSummaryRows, selectedDate);
-    } catch (err) {
-      console.error(err);
+      const data = await getSummaryDataForPDF();
+      if (!data || data.length === 0) {
+        alert('No attendance data available for the selected date.');
+        return;
+      }
+      await generateFormattedPDF(data, selectedDate);
+    } catch (err: any) {
+      console.error('PDF Error:', err);
+      alert('Error generating Formatted PDF: ' + (err?.message || err));
     } finally {
       setLoading(false);
     }
@@ -411,9 +528,15 @@ export default function AdminPage() {
   const handleDownloadSelfiePDF = async () => {
     setLoading(true);
     try {
-      await generateSelfiePDF(filteredSummaryRows, selectedDate);
-    } catch (err) {
-      console.error(err);
+      const data = await getSummaryDataForPDF();
+      if (!data || data.length === 0) {
+        alert('No attendance data available for the selected date.');
+        return;
+      }
+      await generateSelfiePDF(data, selectedDate);
+    } catch (err: any) {
+      console.error('Selfie PDF Error:', err);
+      alert('Error generating Selfie PDF: ' + (err?.message || err));
     } finally {
       setLoading(false);
     }
@@ -423,9 +546,15 @@ export default function AdminPage() {
   const handleDownloadLiveSelfiePDF = async () => {
     setLoading(true);
     try {
-      await generateLiveSelfiePDF(filteredLiveLogs, selectedDate);
-    } catch (err) {
-      console.error(err);
+      const logs = await getLiveLogsForPDF();
+      if (!logs || logs.length === 0) {
+        alert('No live attendance logs found for the selected date.');
+        return;
+      }
+      await generateLiveSelfiePDF(logs, selectedDate);
+    } catch (err: any) {
+      console.error('Live Selfie PDF Error:', err);
+      alert('Error generating Live Selfie PDF: ' + (err?.message || err));
     } finally {
       setLoading(false);
     }
