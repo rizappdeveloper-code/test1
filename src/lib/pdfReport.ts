@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { AttendanceLog, DailySummaryRow, MonthlySummaryRow } from '../types';
+import { AttendanceLog, DailySummaryRow } from '../types';
 
 // Helper to convert images to base64 data URLs for clean canvas rendering
 async function toDataURL(url: string): Promise<string> {
@@ -24,26 +24,97 @@ async function toDataURL(url: string): Promise<string> {
   }
 }
 
-function createPdfContainer(widthPx: number): HTMLDivElement {
-  const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.top = '0';
-  container.style.left = '0';
-  container.style.zIndex = '-99999';
-  container.style.opacity = '0.01';
-  container.style.pointerEvents = 'none';
-  container.style.width = `${widthPx}px`;
-  container.style.backgroundColor = '#ffffff';
-  container.style.color = '#1e293b';
-  container.style.padding = '30px';
-  container.style.fontFamily = 'Arial, sans-serif';
-  return container;
+// Render HTML content safely inside an off-screen iframe to avoid Tailwind v4 oklch CSS conflicts and opacity issues
+async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 2): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '0';
+    iframe.style.width = `${widthPx}px`;
+    iframe.style.height = '1000px';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      return reject(new Error('Failed to access iframe document'));
+    }
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+            body { margin: 0; padding: 25px; background: #ffffff; color: #1e293b; width: ${widthPx}px; }
+          </style>
+        </head>
+        <body>${htmlContent}</body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(async () => {
+      try {
+        const body = doc.body;
+        const fullHeight = Math.max(body.scrollHeight, body.offsetHeight, 600);
+        iframe.style.height = `${fullHeight}px`;
+
+        const canvas = await html2canvas(body, {
+          scale,
+          useCORS: true,
+          allowTaint: true,
+          width: widthPx,
+          height: fullHeight,
+          windowWidth: widthPx,
+          windowHeight: fullHeight,
+          backgroundColor: '#ffffff',
+        });
+
+        document.body.removeChild(iframe);
+        resolve(canvas);
+      } catch (err) {
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+        reject(err);
+      }
+    }, 200);
+  });
+}
+
+function saveCanvasToPdf(canvas: HTMLCanvasElement, filename: string) {
+  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const pdf = new jsPDF('landscape', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfPageHeight = pdf.internal.pageSize.getHeight();
+
+  const imgWidth = pdfWidth;
+  const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+  if (imgHeight <= pdfPageHeight) {
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+  } else {
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pdfPageHeight;
+
+    while (heightLeft > 0) {
+      position -= pdfPageHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfPageHeight;
+    }
+  }
+
+  pdf.save(filename);
 }
 
 // 1. Generate Standard Formatted Summary PDF (Matching GAS generateFormattedPDF)
 export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: string) {
-  const container = createPdfContainer(1050);
-
   let html = `
     <div style="border-bottom: 4px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px;">
       <table width="100%" style="border-collapse: collapse;">
@@ -129,38 +200,12 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
     </div>
   `;
 
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  try {
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      onclone: (clonedDoc) => {
-        const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-        styleElements.forEach((el) => el.remove());
-      },
-    });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new jsPDF('landscape', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`AQSA_Daily_Summary_${dateStr}.pdf`);
-  } finally {
-    if (document.body.contains(container)) {
-      document.body.removeChild(container);
-    }
-  }
+  const canvas = await renderHtmlToCanvas(html, 1050, 2);
+  saveCanvasToPdf(canvas, `AQSA_Daily_Summary_${dateStr}.pdf`);
 }
 
 // 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies)
 export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
-  const container = createPdfContainer(1100);
-
   // Pre-convert images
   const processRows = await Promise.all(
     data.map(async (row) => ({
@@ -268,37 +313,12 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
     </div>
   `;
 
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  try {
-    const canvas = await html2canvas(container, {
-      scale: 1.5,
-      useCORS: true,
-      allowTaint: true,
-      onclone: (clonedDoc) => {
-        const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-        styleElements.forEach((el) => el.remove());
-      },
-    });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new jsPDF('landscape', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`AQSA_Verification_Selfie_Report_${dateStr}.pdf`);
-  } finally {
-    if (document.body.contains(container)) {
-      document.body.removeChild(container);
-    }
-  }
+  const canvas = await renderHtmlToCanvas(html, 1100, 1.5);
+  saveCanvasToPdf(canvas, `AQSA_Verification_Selfie_Report_${dateStr}.pdf`);
 }
 
 // 3. Generate Live Punch Verification PDF with Selfies (Matching GAS downloadFilteredLivePDFWithSelfies)
 export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: string) {
-  const container = createPdfContainer(1050);
-
   const processLogs = await Promise.all(
     data.map(async (l) => ({
       ...l,
@@ -375,29 +395,6 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
     </div>
   `;
 
-  container.innerHTML = html;
-  document.body.appendChild(container);
-
-  try {
-    const canvas = await html2canvas(container, {
-      scale: 1.5,
-      useCORS: true,
-      allowTaint: true,
-      onclone: (clonedDoc) => {
-        const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-        styleElements.forEach((el) => el.remove());
-      },
-    });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new jsPDF('landscape', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`AQSA_Live_Selfie_Report_${dateStr}.pdf`);
-  } finally {
-    if (document.body.contains(container)) {
-      document.body.removeChild(container);
-    }
-  }
+  const canvas = await renderHtmlToCanvas(html, 1050, 1.5);
+  saveCanvasToPdf(canvas, `AQSA_Live_Selfie_Report_${dateStr}.pdf`);
 }
