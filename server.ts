@@ -31,49 +31,47 @@ function getDriveClient(req: express.Request) {
 
 // Find or create "AQSA Attendance Selfies" folder in Google Drive
 async function getOrCreateSelfiesFolder(drive: ReturnType<typeof google.drive>) {
-  try {
-    const res = await drive.files.list({
-      q: "name = 'AQSA Attendance Selfies' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-      fields: 'files(id, name)',
-      spaces: 'drive',
-    });
+  const res = await drive.files.list({
+    q: "name = 'AQSA Attendance Selfies' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+    fields: 'files(id, name, webViewLink)',
+    spaces: 'drive',
+  });
 
-    if (res.data.files && res.data.files.length > 0) {
-      return res.data.files[0].id!;
-    }
-
-    // Create folder
-    const folderMetadata = {
-      name: 'AQSA Attendance Selfies',
-      mimeType: 'application/vnd.google-apps.folder',
-    };
-    const folder = await drive.files.create({
-      requestBody: folderMetadata,
-      fields: 'id',
-    });
-    return folder.data.id!;
-  } catch (err) {
-    console.warn('Could not create/find AQSA folder in Google Drive, uploading to root:', err);
-    return null;
+  if (res.data.files && res.data.files.length > 0) {
+    return { id: res.data.files[0].id!, link: res.data.files[0].webViewLink };
   }
+
+  // Create folder
+  const folderMetadata = {
+    name: 'AQSA Attendance Selfies',
+    mimeType: 'application/vnd.google-apps.folder',
+  };
+  const folder = await drive.files.create({
+    requestBody: folderMetadata,
+    fields: 'id, webViewLink',
+  });
+  return { id: folder.data.id!, link: folder.data.webViewLink };
 }
 
 // API Route: Check Drive Integration Status & Get Folder Link
 app.get('/api/drive-status', async (req, res) => {
-  const fallbackSearchUrl = 'https://drive.google.com/drive/search?q=AQSA%20Attendance%20Selfies';
   try {
     const drive = getDriveClient(req);
     const about = await drive.about.get({ fields: 'user' });
     
     let folderId = null;
-    let folderUrl = fallbackSearchUrl;
+    let folderUrl = null;
+    let errorDetails = null;
+
     try {
-      folderId = await getOrCreateSelfiesFolder(drive);
-      if (folderId) {
+      const folderObj = await getOrCreateSelfiesFolder(drive);
+      if (folderObj && folderObj.id) {
+        folderId = folderObj.id;
         folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
       }
-    } catch (e) {
-      console.warn('Could not fetch folder link:', e);
+    } catch (e: any) {
+      console.error('Folder creation/finding error:', e);
+      errorDetails = e?.message || String(e);
     }
 
     res.json({
@@ -81,12 +79,14 @@ app.get('/api/drive-status', async (req, res) => {
       user: about.data.user,
       folderId,
       folderUrl,
+      errorDetails,
       folderName: 'AQSA Attendance Selfies',
     });
   } catch (err: any) {
+    console.error('Drive status error:', err);
     res.json({
       connected: false,
-      folderUrl: fallbackSearchUrl,
+      folderUrl: null,
       error: err.message || 'Google Drive not connected',
     });
   }
@@ -96,7 +96,8 @@ app.get('/api/drive-status', async (req, res) => {
 app.get('/api/drive-folder', async (req, res) => {
   try {
     const drive = getDriveClient(req);
-    const folderId = await getOrCreateSelfiesFolder(drive);
+    const folderObj = await getOrCreateSelfiesFolder(drive);
+    const folderId = folderObj?.id;
     
     if (!folderId) {
       return res.status(404).json({ error: 'Folder not found' });
@@ -140,7 +141,13 @@ app.post('/api/upload-selfie', async (req, res) => {
     const buffer = Buffer.from(base64Data, 'base64');
     const stream = Readable.from(buffer);
 
-    const folderId = await getOrCreateSelfiesFolder(drive);
+    let folderId = null;
+    try {
+      const folderObj = await getOrCreateSelfiesFolder(drive);
+      folderId = folderObj?.id;
+    } catch (fErr) {
+      console.warn('Folder get/create failed, uploading to root:', fErr);
+    }
 
     const actualFileName = fileName || `${empId || 'EMP'}_${Date.now()}.jpg`;
 
