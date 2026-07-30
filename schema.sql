@@ -1,122 +1,89 @@
 -- =========================================================
--- SUPABASE DATABASE MIGRATION SCRIPT
--- Copy & paste this entire SQL script into your Supabase SQL Editor:
--- https://supabase.com/dashboard/project/fkvycofytvaarkecrpje/sql/new
+-- AQSA ATTENDANCE SYSTEM - SUPABASE DATABASE SCHEMA (STEP 1)
 -- =========================================================
 
--- 1. PROFILES TABLE (Linked to auth.users)
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  full_name TEXT,
-  avatar_url TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+-- 1. BRANCHES TABLE
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  radius NUMERIC DEFAULT 100 NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable Row Level Security (RLS)
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for Profiles
-DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
-CREATE POLICY "Users can view their own profile" 
-  ON public.profiles FOR SELECT 
-  USING (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
-CREATE POLICY "Users can update their own profile" 
-  ON public.profiles FOR UPDATE 
-  USING (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
-CREATE POLICY "Users can insert their own profile" 
-  ON public.profiles FOR INSERT 
-  WITH CHECK (auth.uid() = id);
-
--- Automatic Profile Creation Trigger on Sign Up
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, full_name, avatar_url)
-  VALUES (
-    new.id, 
-    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
-    new.raw_user_meta_data->>'avatar_url'
-  )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
-
--- 2. PROJECTS TABLE
-CREATE TABLE IF NOT EXISTS public.projects (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+-- 2. EMPLOYEES TABLE
+CREATE TABLE IF NOT EXISTS public.employees (
+  id TEXT PRIMARY KEY, -- e.g. "EMP001"
   name TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'archived')),
+  branch_name TEXT NOT NULL,
+  active BOOLEAN DEFAULT true NOT NULL,
+  photo_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable Row Level Security (RLS)
-ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for Projects
-DROP POLICY IF EXISTS "Users can view their own projects" ON public.projects;
-CREATE POLICY "Users can view their own projects" 
-  ON public.projects FOR SELECT 
-  USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can insert their own projects" ON public.projects;
-CREATE POLICY "Users can insert their own projects" 
-  ON public.projects FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can update their own projects" ON public.projects;
-CREATE POLICY "Users can update their own projects" 
-  ON public.projects FOR UPDATE 
-  USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can delete their own projects" ON public.projects;
-CREATE POLICY "Users can delete their own projects" 
-  ON public.projects FOR DELETE 
-  USING (auth.uid() = user_id);
-
-
--- 3. TASKS TABLE
-CREATE TABLE IF NOT EXISTS public.tasks (
+-- 3. ATTENDANCE LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.attendance_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  title TEXT NOT NULL,
-  completed BOOLEAN DEFAULT false NOT NULL,
+  emp_id TEXT NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+  emp_name TEXT NOT NULL,
+  branch_name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('IN', 'OUT', 'REJECTED')),
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  lat DOUBLE PRECISION,
+  lng DOUBLE PRECISION,
+  distance_m NUMERIC,
+  photo_url TEXT,
+  photo_source TEXT DEFAULT 'LIVE (Camera)',
+  file_name TEXT,
+  verification_delay NUMERIC,
+  status TEXT DEFAULT 'Present',
+  accuracy NUMERIC,
+  created_by TEXT DEFAULT 'Mobile App',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable Row Level Security (RLS)
-ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+-- 4. ADMIN USERS TABLE (Admin & Super Admin Credentials)
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email_or_username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('ADMIN', 'SUPERADMIN')),
+  active BOOLEAN DEFAULT true NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
--- RLS Policies for Tasks
-DROP POLICY IF EXISTS "Users can view their own tasks" ON public.tasks;
-CREATE POLICY "Users can view their own tasks" 
-  ON public.tasks FOR SELECT 
-  USING (auth.uid() = user_id);
+-- Enable Row Level Security (RLS) on all tables
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can insert their own tasks" ON public.tasks;
-CREATE POLICY "Users can insert their own tasks" 
-  ON public.tasks FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
+-- Allow public read/write access for web app queries (Anon key)
+DROP POLICY IF EXISTS "Allow public access to branches" ON public.branches;
+CREATE POLICY "Allow public access to branches" ON public.branches FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Users can update their own tasks" ON public.tasks;
-CREATE POLICY "Users can update their own tasks" 
-  ON public.tasks FOR UPDATE 
-  USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Allow public access to employees" ON public.employees;
+CREATE POLICY "Allow public access to employees" ON public.employees FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Users can delete their own tasks" ON public.tasks;
-CREATE POLICY "Users can delete their own tasks" 
-  ON public.tasks FOR DELETE 
-  USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Allow public access to attendance_logs" ON public.attendance_logs;
+CREATE POLICY "Allow public access to attendance_logs" ON public.attendance_logs FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public access to admin_users" ON public.admin_users;
+CREATE POLICY "Allow public access to admin_users" ON public.admin_users FOR ALL USING (true) WITH CHECK (true);
+
+-- Insert sample initial data so you can test right away
+INSERT INTO public.branches (name, lat, lng, radius) VALUES
+  ('Main Branch', 24.8607, 67.0011, 100),
+  ('North Branch', 24.9262, 67.0982, 150)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO public.employees (id, name, branch_name, active) VALUES
+  ('EMP001', 'John Doe', 'Main Branch', true),
+  ('EMP002', 'Jane Smith', 'North Branch', true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.admin_users (email_or_username, password, role, active) VALUES
+  ('admin@aqsa.com', 'admin123', 'ADMIN', true),
+  ('superadmin@aqsa.com', 'master123', 'SUPERADMIN', true)
+ON CONFLICT (email_or_username) DO NOTHING;

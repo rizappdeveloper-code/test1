@@ -1,6 +1,6 @@
 {
-  "name": "Welcome to My SaaS",
-  "description": "SaaS landing page featuring user authentication with Supabase, including Sign In, Sign Up, and session state tracking.",
-  "requestFramePermissions": [],
+  "name": "AQSA Attendance Portal",
+  "description": "Full-Stack Attendance System with Geofencing, Live/Uploaded Selfie verification, Supabase database, and Google Drive storage.",
+  "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
