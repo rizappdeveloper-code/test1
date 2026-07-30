@@ -44,9 +44,16 @@ export default function IndexPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load initial branches
+  // Load initial branches and check URL query params for QR code scanning
   useEffect(() => {
     fetchBranches();
+    
+    // Check if employee ID is in URL query parameter (?id=EMP001)
+    const params = new URLSearchParams(window.location.search);
+    const urlId = params.get('id');
+    if (urlId) {
+      setSelectedEmpId(urlId.replace(/['"]+/g, '').trim());
+    }
   }, []);
 
   const fetchBranches = async () => {
@@ -322,13 +329,20 @@ export default function IndexPage() {
 
       setMessage({
         type: 'success',
-        text: `SHIFT ${punchType} Marked Successfully for ${employeeInfo.name}!`,
+        text: `✅ SHIFT ${punchType} Marked Successfully for ${employeeInfo.name}! Ready for next user.`,
       });
 
-      // Reset Form State
+      // Clear all fields for shared device kiosk usage
+      setSelectedEmpId('');
+      setEmployeeInfo(null);
       setPhotoDataUrl(null);
       setFileName('');
-      checkEmployeeStatus(employeeInfo.id);
+      setVerificationDelay(0);
+      setLocation(null);
+      setDistance(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err: any) {
       console.error('Punch Error:', err);
       setMessage({ type: 'error', text: err.message || 'Failed to mark attendance. Please try again.' });
