@@ -12,17 +12,18 @@ import {
   AlertTriangle,
   Download,
   Copy,
-  Eye,
-  CheckSquare,
-  Square,
+  Clipboard,
+  ClipboardCheck,
   ChevronLeft,
   ChevronRight,
-  Filter,
   Users,
   Building2,
   Clock,
   ShieldCheck,
-  Settings
+  Settings,
+  FileSpreadsheet,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 
 interface SuperAdminCrudProps {
@@ -63,6 +64,12 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState<boolean>(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Excel Paste Modal State
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState<boolean>(false);
+  const [pastedRawText, setPastedRawText] = useState<string>('');
+  const [parsedPasteRows, setParsedPasteRows] = useState<any[]>([]);
+  const [parsedPasteHeaders, setParsedPasteHeaders] = useState<string[]>([]);
+
   // Form State for Create/Update
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [rawJsonInput, setRawJsonInput] = useState<string>('');
@@ -92,6 +99,28 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
     }
   }, [errorMsg]);
 
+  // Keyboard Ctrl+V Global Paste Listener to open Excel Paste Modal
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      // Ignore if user is inside an input, textarea, or contentEditable
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      const pastedData = e.clipboardData?.getData('text');
+      if (pastedData && pastedData.trim()) {
+        e.preventDefault();
+        setPastedRawText(pastedData);
+        handleParseRawPasteText(pastedData);
+        setIsPasteModalOpen(true);
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, [columns]);
+
   const fetchTableData = async () => {
     if (!activeTableName) return;
     setLoading(true);
@@ -114,18 +143,10 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
       const { data, error } = await supabase
         .from(activeTableName)
         .select('*')
-        .range(from, to)
-        .order('created_at' in (records[0] || {}) ? 'created_at' : 'id', { ascending: false });
+        .range(from, to);
 
       if (error) {
-        // Fallback without ordering if created_at doesn't exist
-        const { data: fallbackData, error: fbErr } = await supabase
-          .from(activeTableName)
-          .select('*')
-          .range(from, to);
-        if (fbErr) throw fbErr;
-        setRecords(fallbackData || []);
-        extractColumns(fallbackData || []);
+        throw error;
       } else {
         setRecords(data || []);
         extractColumns(data || []);
@@ -142,7 +163,6 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
 
   const extractColumns = (data: any[]) => {
     if (data.length === 0) {
-      // Use standard schemas for preset tables if empty
       if (selectedTable === 'employees') setColumns(['id', 'name', 'branch_name', 'active', 'photo_url', 'created_at']);
       else if (selectedTable === 'branches') setColumns(['id', 'name', 'lat', 'lng', 'radius', 'created_at']);
       else if (selectedTable === 'attendance_logs') setColumns(['id', 'emp_id', 'emp_name', 'branch_name', 'type', 'timestamp', 'lat', 'lng', 'distance_m', 'photo_url', 'photo_source', 'file_name', 'created_at']);
@@ -151,13 +171,11 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
       return;
     }
 
-    // Collect all keys across fetched rows
     const keysSet = new Set<string>();
     data.forEach((row) => {
       Object.keys(row).forEach((k) => keysSet.add(k));
     });
 
-    // Ensure 'id' is first if exists
     const cols = Array.from(keysSet);
     if (cols.includes('id')) {
       const filtered = cols.filter((c) => c !== 'id');
@@ -198,10 +216,12 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
   };
 
   // Open Add Modal
-  const handleOpenAdd = () => {
+  const handleOpenAdd = (prefillData: Record<string, any> = {}) => {
     const initial: Record<string, any> = {};
     columns.forEach((col) => {
-      if (col === 'id' && (selectedTable === 'attendance_logs' || selectedTable === 'branches')) {
+      if (prefillData[col] !== undefined) {
+        initial[col] = prefillData[col];
+      } else if (col === 'id' && (selectedTable === 'attendance_logs' || selectedTable === 'branches')) {
         initial[col] = String(Date.now());
       } else if (col === 'active') {
         initial[col] = true;
@@ -217,6 +237,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
         initial[col] = '';
       }
     });
+
     setFormData(initial);
     setRawJsonInput(JSON.stringify(initial, null, 2));
     setUseRawJsonMode(false);
@@ -234,11 +255,9 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
       if (useRawJsonMode) {
         dataToInsert = JSON.parse(rawJsonInput);
       } else {
-        // Clean empty string fields or format numbers/booleans
         dataToInsert = { ...formData };
         Object.keys(dataToInsert).forEach((k) => {
           if (dataToInsert[k] === '') {
-            // Remove optional empty string or set null if not required
             delete dataToInsert[k];
           } else if (['lat', 'lng', 'radius', 'distance_m', 'accuracy', 'verification_delay'].includes(k)) {
             dataToInsert[k] = parseFloat(dataToInsert[k]);
@@ -248,11 +267,11 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
         });
       }
 
-      const { data, error } = await supabase.from(activeTableName).insert([dataToInsert]).select();
+      const { error } = await supabase.from(activeTableName).insert([dataToInsert]);
 
       if (error) throw error;
 
-      setSuccessMsg(`Successfully created record in "${activeTableName}"!`);
+      setSuccessMsg(`Successfully inserted row into "${activeTableName}"!`);
       setIsAddModalOpen(false);
       fetchTableData();
     } catch (err: any) {
@@ -293,10 +312,9 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
         });
       }
 
-      // Assume primary key is 'id'
       const recordId = editingRecord.id;
       if (!recordId) {
-        throw new Error("Cannot update record because it missing an 'id' primary key.");
+        throw new Error("Cannot update record because it is missing an 'id' primary key.");
       }
 
       const { error } = await supabase
@@ -372,6 +390,205 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
     }
   };
 
+  // EXCEL / CSV COPY ROW(S) TO CLIPBOARD
+  const handleCopyRowsToClipboard = (rowsToCopy: any[]) => {
+    if (rowsToCopy.length === 0) return;
+
+    // Build Excel TSV string (Tab-Separated Values)
+    const headerLine = columns.join('\t');
+    const dataLines = rowsToCopy.map((r) =>
+      columns
+        .map((c) => {
+          let val = r[c];
+          if (val === null || val === undefined) val = '';
+          else if (typeof val === 'object') val = JSON.stringify(val);
+          return String(val).replace(/\t/g, ' ').replace(/\n/g, ' ');
+        })
+        .join('\t')
+    );
+
+    const fullTsv = [headerLine, ...dataLines].join('\n');
+
+    navigator.clipboard.writeText(fullTsv).then(() => {
+      setSuccessMsg(`Copied ${rowsToCopy.length} row(s) to clipboard in Excel TSV format! You can paste this directly into Excel, Sheets, or here.`);
+    }).catch(() => {
+      setErrorMsg('Failed to copy to clipboard.');
+    });
+  };
+
+  // DUPLICATE / CLONE ROW
+  const handleDuplicateRecord = async (rec: any) => {
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const copy = { ...rec };
+
+      // Generate a new unique ID or remove auto-increment ID
+      if (selectedTable === 'attendance_logs' || selectedTable === 'branches') {
+        copy.id = String(Date.now() + Math.floor(Math.random() * 1000));
+      } else {
+        delete copy.id;
+      }
+
+      if ('created_at' in copy) {
+        copy.created_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase.from(activeTableName).insert([copy]);
+
+      if (error) throw error;
+
+      setSuccessMsg(`Duplicated record successfully!`);
+      fetchTableData();
+    } catch (err: any) {
+      console.error('Duplicate error:', err);
+      setErrorMsg(`Duplicate failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // BULK DUPLICATE SELECTED ROWS
+  const handleBulkDuplicate = async () => {
+    if (selectedIds.size === 0) return;
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const selectedRows = records.filter((r) => selectedIds.has(String(r.id)));
+      const copiesToInsert = selectedRows.map((rec) => {
+        const copy = { ...rec };
+        if (selectedTable === 'attendance_logs' || selectedTable === 'branches') {
+          copy.id = String(Date.now() + Math.floor(Math.random() * 10000));
+        } else {
+          delete copy.id;
+        }
+        if ('created_at' in copy) copy.created_at = new Date().toISOString();
+        return copy;
+      });
+
+      const { error } = await supabase.from(activeTableName).insert(copiesToInsert);
+      if (error) throw error;
+
+      setSuccessMsg(`Successfully duplicated ${copiesToInsert.length} rows!`);
+      setSelectedIds(new Set());
+      fetchTableData();
+    } catch (err: any) {
+      console.error('Bulk duplicate error:', err);
+      setErrorMsg(`Bulk duplicate failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // PARSE RAW EXCEL / CSV PASTED TEXT
+  const handleParseRawPasteText = (text: string) => {
+    if (!text || !text.trim()) {
+      setParsedPasteHeaders([]);
+      setParsedPasteRows([]);
+      return;
+    }
+
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return;
+
+    // Detect if TSV (Tab separated from Excel) or CSV
+    const isTabDelimited = lines[0].includes('\t');
+    const delimiter = isTabDelimited ? '\t' : ',';
+
+    const parseLine = (line: string) => {
+      if (isTabDelimited) {
+        return line.split('\t').map((s) => s.trim().replace(/^"|"$/g, ''));
+      }
+      // Simple CSV split
+      return line.split(',').map((s) => s.trim().replace(/^"|"$/g, ''));
+    };
+
+    const firstLineCols = parseLine(lines[0]);
+
+    // Check if first line matches existing column headers
+    const matchesExistingCols = firstLineCols.some((c) =>
+      columns.map((col) => col.toLowerCase()).includes(c.toLowerCase())
+    );
+
+    let headers: string[] = [];
+    let startIdx = 0;
+
+    if (matchesExistingCols) {
+      headers = firstLineCols;
+      startIdx = 1;
+    } else {
+      headers = columns.length > 0 ? columns : firstLineCols;
+      startIdx = 0;
+    }
+
+    setParsedPasteHeaders(headers);
+
+    const parsedRows: any[] = [];
+    for (let i = startIdx; i < lines.length; i++) {
+      const vals = parseLine(lines[i]);
+      if (vals.length === 0) continue;
+
+      const rowObj: Record<string, any> = {};
+      headers.forEach((h, idx) => {
+        let rawVal: any = vals[idx] !== undefined ? vals[idx] : '';
+
+        // Auto cast types
+        if (rawVal === 'true' || rawVal === 'TRUE') rawVal = true;
+        else if (rawVal === 'false' || rawVal === 'FALSE') rawVal = false;
+        else if (!isNaN(Number(rawVal)) && rawVal !== '' && h !== 'id' && h !== 'emp_id' && h !== 'password') {
+          rawVal = Number(rawVal);
+        }
+
+        rowObj[h] = rawVal;
+      });
+
+      // Ensure ID for tables requiring manual string ID
+      if (selectedTable === 'attendance_logs' || selectedTable === 'branches') {
+        if (!rowObj.id) rowObj.id = String(Date.now() + i);
+      }
+
+      parsedRows.push(rowObj);
+    }
+
+    setParsedPasteRows(parsedRows);
+  };
+
+  // EXECUTE BATCH PASTE INSERT INTO SUPABASE
+  const handleExecuteBatchPasteInsert = async () => {
+    if (parsedPasteRows.length === 0) return;
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      // Clean rows before insertion
+      const cleanedRows = parsedPasteRows.map((r) => {
+        const clean: Record<string, any> = {};
+        Object.keys(r).forEach((k) => {
+          if (r[k] !== '' && r[k] !== undefined && r[k] !== null) {
+            clean[k] = r[k];
+          }
+        });
+        return clean;
+      });
+
+      const { error } = await supabase.from(activeTableName).insert(cleanedRows);
+      if (error) throw error;
+
+      setSuccessMsg(`Successfully batch-inserted ${cleanedRows.length} rows into "${activeTableName}"!`);
+      setIsPasteModalOpen(false);
+      setPastedRawText('');
+      setParsedPasteRows([]);
+      fetchTableData();
+    } catch (err: any) {
+      console.error('Batch insert error:', err);
+      setErrorMsg(`Batch insert failed: ${err.message || 'Verify field names & types.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Export Table Data to JSON file
   const handleExportJson = () => {
     const jsonStr = JSON.stringify(records, null, 2);
@@ -394,7 +611,6 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
           let val = r[col];
           if (val === null || val === undefined) val = '';
           else if (typeof val === 'object') val = JSON.stringify(val);
-          // Escape quotes
           const escaped = String(val).replace(/"/g, '""');
           return `"${escaped}"`;
         })
@@ -427,13 +643,15 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
 
     const strVal = String(val);
 
-    // Image fields (photo_url or base64)
     if (colName.includes('photo') || colName.includes('image') || strVal.startsWith('data:image/') || strVal.startsWith('http')) {
       if (strVal.startsWith('data:image/') || strVal.match(/\.(jpeg|jpg|gif|png|webp)/i) || colName.includes('photo')) {
         return (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setPreviewImage(strVal)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewImage(strVal);
+              }}
               className="group relative focus:outline-none"
               title="Click to view full image"
             >
@@ -452,7 +670,6 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
       }
     }
 
-    // Long text truncation
     if (strVal.length > 50) {
       return (
         <span className="font-mono text-[11px] text-slate-700" title={strVal}>
@@ -474,14 +691,31 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900">Super Admin Database Manager</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-900">Super Admin Database Console</h2>
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-[10px] font-black uppercase tracking-wider">
+                  SUPERADMIN ONLY
+                </span>
+              </div>
               <p className="text-xs text-slate-500 font-semibold">
-                Direct CRUD control (Create, Read, Update, Delete) on Supabase tables
+                Direct CRUD (Create, Read, Update, Delete) & Excel Copy-Paste Row Manager
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+            <button
+              onClick={() => {
+                setPastedRawText('');
+                setParsedPasteRows([]);
+                setIsPasteModalOpen(true);
+              }}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all"
+              title="Paste CSV/Excel tabular text directly"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Paste Excel / CSV</span>
+            </button>
             <button
               onClick={handleExportCsv}
               disabled={records.length === 0}
@@ -563,7 +797,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
             <div className="flex items-center gap-2 flex-1">
               <input
                 type="text"
-                placeholder="Enter Supabase table name (e.g. system_logs)..."
+                placeholder="Enter Supabase table name..."
                 value={customTableName}
                 onChange={(e) => setCustomTableName(e.target.value)}
                 onKeyDown={(e) => {
@@ -626,28 +860,52 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+        {/* Selected Rows Action Bar */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
           {selectedIds.size > 0 && (
-            <button
-              onClick={() => setIsBulkDeleteOpen(true)}
-              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition-all"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Selected ({selectedIds.size})</span>
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  const selRows = records.filter((r) => selectedIds.has(String(r.id)));
+                  handleCopyRowsToClipboard(selRows);
+                }}
+                className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all"
+                title="Copy selected rows as Excel TSV"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy ({selectedIds.size})</span>
+              </button>
+
+              <button
+                onClick={handleBulkDuplicate}
+                className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all"
+                title="Duplicate selected rows"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Duplicate ({selectedIds.size})</span>
+              </button>
+
+              <button
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete ({selectedIds.size})</span>
+              </button>
+            </>
           )}
 
           <button
-            onClick={handleOpenAdd}
+            onClick={() => handleOpenAdd()}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span>Add New Record</span>
+            <span>Insert Row</span>
           </button>
         </div>
       </div>
 
-      {/* Main Data Table */}
+      {/* Main Excel-style Data Table */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
         {loading && records.length === 0 ? (
           <div className="p-12 text-center text-slate-500 font-bold text-sm flex flex-col items-center gap-2">
@@ -656,11 +914,11 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
           </div>
         ) : filteredRecords.length === 0 ? (
           <div className="p-12 text-center text-slate-400 font-bold text-sm">
-            No records found in "{activeTableName}". Click "Add New Record" to insert your first row!
+            No records found in "{activeTableName}". Click "Insert Row" or "Paste Excel / CSV" to add data!
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse select-text">
               <thead>
                 <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-wider">
                   <th className="p-3 w-10 text-center">
@@ -671,9 +929,9 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
                       className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     />
                   </th>
-                  <th className="p-3 w-16 text-center">Actions</th>
+                  <th className="p-3 w-32 text-center">Row Actions</th>
                   {columns.map((col) => (
-                    <th key={col} className="p-3 font-extrabold whitespace-nowrap">
+                    <th key={col} className="p-3 font-extrabold whitespace-nowrap border-l border-slate-200">
                       {col}
                     </th>
                   ))}
@@ -687,7 +945,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
                   return (
                     <tr
                       key={rowId}
-                      className={`hover:bg-indigo-50/40 transition-colors ${isChecked ? 'bg-indigo-50/60' : ''}`}
+                      className={`group hover:bg-indigo-50/50 transition-colors ${isChecked ? 'bg-indigo-50/80' : ''}`}
                     >
                       <td className="p-3 text-center">
                         <input
@@ -698,19 +956,34 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
                         />
                       </td>
 
-                      <td className="p-3 text-center whitespace-nowrap">
+                      {/* Excel-style Row Controls: Copy, Edit, Duplicate, Delete */}
+                      <td className="p-2 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
                           <button
+                            onClick={() => handleCopyRowsToClipboard([row])}
+                            className="p-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-lg transition-colors"
+                            title="Copy Row to Clipboard (Excel TSV)"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateRecord(row)}
+                            className="p-1.5 bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-700 rounded-lg transition-colors"
+                            title="Insert Copy (Duplicate Row)"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleOpenEdit(row)}
-                            className="p-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 rounded-lg transition-colors"
-                            title="Edit Record"
+                            className="p-1.5 bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 rounded-lg transition-colors"
+                            title="Edit Row"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setDeletingRecord(row)}
-                            className="p-1.5 bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 rounded-lg transition-colors"
-                            title="Delete Record"
+                            className="p-1.5 bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 rounded-lg transition-colors"
+                            title="Delete Row"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -718,7 +991,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
                       </td>
 
                       {columns.map((col) => (
-                        <td key={col} className="p-3 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                        <td key={col} className="p-3 border-l border-slate-100 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
                           {renderCellContent(row[col], col)}
                         </td>
                       ))}
@@ -733,7 +1006,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
         {/* Pagination Bar */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-bold">
           <div className="flex items-center gap-2">
-            <span>Show rows per page:</span>
+            <span>Rows per page:</span>
             <select
               value={pageSize}
               onChange={(e) => {
@@ -773,6 +1046,139 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
         </div>
       </div>
 
+      {/* EXCEL / CSV PASTE & BATCH INSERT MODAL */}
+      {isPasteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 bg-emerald-950 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm">Paste Excel / CSV Tabular Data</h3>
+                  <p className="text-[10px] text-emerald-200 font-semibold">
+                    Copy rows from Excel, Sheets, or Notepad, then paste below to batch insert into "{activeTableName}"
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsPasteModalOpen(false)}
+                className="p-1 text-emerald-300 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-black text-slate-800 flex items-center gap-1.5">
+                    <Clipboard className="w-4 h-4 text-emerald-600" />
+                    <span>Paste Excel/CSV Text Here (or press Ctrl+V)</span>
+                  </label>
+                  {pastedRawText && (
+                    <button
+                      onClick={() => {
+                        setPastedRawText('');
+                        setParsedPasteRows([]);
+                      }}
+                      className="text-[10px] font-bold text-rose-600 hover:underline"
+                    >
+                      Clear Text
+                    </button>
+                  )}
+                </div>
+
+                <textarea
+                  rows={5}
+                  placeholder={`Example Excel copy:\nname\tbranch_name\tactive\nJohn Doe\tPNK\ttrue\nJane Smith\tHO\ttrue`}
+                  value={pastedRawText}
+                  onChange={(e) => {
+                    setPastedRawText(e.target.value);
+                    handleParseRawPasteText(e.target.value);
+                  }}
+                  className="w-full p-3 font-mono bg-slate-900 text-emerald-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none leading-relaxed"
+                />
+              </div>
+
+              {/* Parsed Spreadsheet Preview Grid */}
+              {parsedPasteRows.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <span>Parsed Data Preview ({parsedPasteRows.length} rows ready)</span>
+                    </h4>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Auto-Mapped Headers
+                    </span>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-48">
+                    <table className="w-full text-left border-collapse text-[11px]">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-extrabold uppercase tracking-wider border-b border-slate-200">
+                          {parsedPasteHeaders.map((h, i) => (
+                            <th key={i} className="p-2 border-r border-slate-200 whitespace-nowrap">
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {parsedPasteRows.slice(0, 10).map((r, rowIdx) => (
+                          <tr key={rowIdx} className="hover:bg-slate-50">
+                            {parsedPasteHeaders.map((h, colIdx) => (
+                              <td key={colIdx} className="p-2 font-mono text-slate-800 border-r border-slate-100 whitespace-nowrap">
+                                {String(r[h] ?? '')}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {parsedPasteRows.length > 10 && (
+                    <p className="text-[10px] text-slate-400 italic text-right">
+                      Showing first 10 of {parsedPasteRows.length} rows...
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-semibold">
+                {parsedPasteRows.length > 0
+                  ? `Ready to insert ${parsedPasteRows.length} rows into "${activeTableName}"`
+                  : 'Paste tabular rows from Excel or CSV above.'}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPasteModalOpen(false)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-extrabold text-xs transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteBatchPasteInsert}
+                  disabled={parsedPasteRows.length === 0 || loading}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-xs flex items-center gap-1.5 shadow-md transition-all disabled:opacity-50"
+                >
+                  {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Insert {parsedPasteRows.length} Rows</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CREATE / EDIT RECORD MODAL */}
       {(isAddModalOpen || editingRecord) && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
@@ -784,7 +1190,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-sm">
-                    {editingRecord ? `Edit Record #${editingRecord.id}` : `Add New Record to "${activeTableName}"`}
+                    {editingRecord ? `Edit Record #${editingRecord.id}` : `Insert Row into "${activeTableName}"`}
                   </h3>
                   <p className="text-[10px] text-slate-400 font-semibold">Modify database values directly</p>
                 </div>
@@ -929,7 +1335,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold flex items-center gap-1.5 shadow-md transition-all"
                 >
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  <span>{editingRecord ? 'Save Changes' : 'Insert Record'}</span>
+                  <span>{editingRecord ? 'Save Changes' : 'Insert Row'}</span>
                 </button>
               </div>
             </form>
@@ -981,7 +1387,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
             <div>
               <h3 className="text-base font-black text-slate-900">Bulk Delete {selectedIds.size} Records?</h3>
               <p className="text-xs text-slate-500 font-semibold mt-1">
-                This will permanently delete {selectedIds.size} selected rows from "{activeTableName}". This action cannot be undone.
+                This will permanently delete {selectedIds.size} selected rows from "{activeTableName}".
               </p>
             </div>
 
