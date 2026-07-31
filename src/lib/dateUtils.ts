@@ -10,41 +10,98 @@ export interface WallClockComponents {
 }
 
 /**
+ * Converts live device time (new Date()) or Date object to Indian Standard Time (IST, UTC+5:30) wall-clock ISO string.
+ * e.g. If device local time in Kuwait is 15:30 (12:30 UTC), IST is 18:00 (12:30 UTC + 5:30).
+ * Returns: "2026-07-31T18:00:00.000"
+ */
+export function getISTNowISOString(date: Date | string | number = new Date()): string {
+  let d: Date;
+  if (date instanceof Date) {
+    d = date;
+  } else if (typeof date === 'number') {
+    d = new Date(date);
+  } else {
+    const str = String(date).trim();
+    if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}/.test(str)) {
+      return str.replace(' ', 'T');
+    }
+    d = new Date(str);
+    if (isNaN(d.getTime())) d = new Date();
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: INDIA_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+
+  const p: { [key: string]: string } = {};
+  parts.forEach(({ type, value }) => {
+    p[type] = value;
+  });
+
+  const ms = String(d.getMilliseconds()).padStart(3, '0');
+  let hr = p.hour;
+  if (hr === '24') hr = '00';
+  return `${p.year}-${p.month}-${p.day}T${hr}:${p.minute}:${p.second}.${ms}`;
+}
+
+export function getISTISOString(date: Date | string | number = new Date()): string {
+  return getISTNowISOString(date);
+}
+
+/**
  * Extracts wall-clock date and time components (year, month, day, hours, minutes, seconds)
- * directly from any string or Date object without shifting hours for timezone offsets.
+ * directly from string timestamps without timezone shifting so manually entered times (e.g. 03:00 PM) remain unchanged.
+ * For live Date objects, converts to Asia/Kolkata wall-clock time.
  */
 export function getWallClockComponents(timestamp?: string | Date | number | null): WallClockComponents | null {
   if (!timestamp) return null;
 
   if (timestamp instanceof Date) {
     if (isNaN(timestamp.getTime())) return null;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: INDIA_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(timestamp);
+
+    const p: { [key: string]: string } = {};
+    parts.forEach(({ type, value }) => {
+      p[type] = value;
+    });
+
+    const hr = p.hour === '24' ? 0 : parseInt(p.hour, 10);
     return {
-      year: timestamp.getFullYear(),
-      month: timestamp.getMonth() + 1,
-      day: timestamp.getDate(),
-      hours: timestamp.getHours(),
-      minutes: timestamp.getMinutes(),
-      seconds: timestamp.getSeconds(),
+      year: parseInt(p.year, 10),
+      month: parseInt(p.month, 10),
+      day: parseInt(p.day, 10),
+      hours: hr,
+      minutes: parseInt(p.minute, 10),
+      seconds: parseInt(p.second, 10),
     };
   }
 
   if (typeof timestamp === 'number') {
     const d = new Date(timestamp);
-    if (isNaN(d.getTime())) return null;
-    return {
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      day: d.getDate(),
-      hours: d.getHours(),
-      minutes: d.getMinutes(),
-      seconds: d.getSeconds(),
-    };
+    return getWallClockComponents(d);
   }
 
   const str = String(timestamp).trim();
   if (!str) return null;
 
-  // Match ISO / datetime strings like '2026-07-31T15:30:00', '2026-07-31 15:30:00', '2026-07-31T15:30:00.000Z', etc.
+  // Match ISO / datetime strings like '2026-07-31T15:30:00', '2026-07-31 15:30:00', etc.
+  // Extract numbers directly so manually entered timestamps remain exact without offset conversion.
   const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (isoMatch) {
     return {
@@ -57,56 +114,28 @@ export function getWallClockComponents(timestamp?: string | Date | number | null
     };
   }
 
-  // Fallback to JS Date object
   const d = new Date(str);
   if (!isNaN(d.getTime())) {
-    return {
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      day: d.getDate(),
-      hours: d.getHours(),
-      minutes: d.getMinutes(),
-      seconds: d.getSeconds(),
-    };
+    return getWallClockComponents(d);
   }
 
   return null;
 }
 
 /**
- * Returns current local date/time as a clean ISO string without offset shifting:
- * e.g. "2026-07-31T15:30:00"
- */
-export function getISTISOString(date: Date | string | number = new Date()): string {
-  const comp = getWallClockComponents(date);
-  if (!comp) {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hr = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    const sec = String(d.getSeconds()).padStart(2, '0');
-    return `${y}-${m}-${day}T${hr}:${min}:${sec}`;
-  }
-  const y = String(comp.year).padStart(4, '0');
-  const m = String(comp.month).padStart(2, '0');
-  const day = String(comp.day).padStart(2, '0');
-  const hr = String(comp.hours).padStart(2, '0');
-  const min = String(comp.minutes).padStart(2, '0');
-  const sec = String(comp.seconds).padStart(2, '0');
-  return `${y}-${m}-${day}T${hr}:${min}:${sec}`;
-}
-
-/**
- * Returns today's date as 'YYYY-MM-DD'
+ * Returns today's date in IST as 'YYYY-MM-DD'
  */
 export function getTodayISTDateString(): string {
-  return formatISTDate(new Date());
+  const comp = getWallClockComponents(new Date());
+  if (!comp) return '';
+  const y = String(comp.year).padStart(4, '0');
+  const m = String(comp.month).padStart(2, '0');
+  const d = String(comp.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /**
- * Returns current month as 'YYYY-MM'
+ * Returns current month in IST as 'YYYY-MM'
  */
 export function getCurrentISTMonthString(): string {
   const dateStr = getTodayISTDateString();
@@ -114,8 +143,8 @@ export function getCurrentISTMonthString(): string {
 }
 
 /**
- * Converts any timestamp / Date to formatted 12-hour time string (e.g. '03:30 PM' or '03:30:15 PM')
- * Preserves exact entered wall-clock hours without shifting for timezone offsets.
+ * Converts any timestamp / Date to formatted 12-hour time string (e.g. '03:30 PM' or '03:30:15 PM').
+ * Preserves exact entered wall-clock hours for manually created logs.
  */
 export function formatISTTime(
   timestamp?: string | Date | number | null,
@@ -210,7 +239,7 @@ export function getISTDateRangeISO(dateStr: string): { startISO: string; endISO:
 export function getISTMonthRangeISO(monthStr: string): { startISO: string; endISO: string } {
   if (!monthStr) {
     const currentMonth = getCurrentISTMonthString();
-    return getISTMonthRangeISO(currentMonth);
+    return getISTMonthRangeISO(monthStr);
   }
   const [year, month] = monthStr.split('-').map(Number);
   const lastDay = new Date(year, month, 0).getDate();
