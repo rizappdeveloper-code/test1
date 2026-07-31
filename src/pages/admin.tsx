@@ -978,8 +978,8 @@ export default function AdminPage() {
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-extrabold text-[10px]">
                     <th className="p-3.5">Employee</th>
                     <th className="p-3.5">Branch</th>
-                    <th className="p-3.5">IN 1 / OUT 1</th>
-                    <th className="p-3.5">Selfie Preview</th>
+                    <th className="p-3.5">Shift Punches (Sets 1–5)</th>
+                    <th className="p-3.5">Selfie Proofs (Sets 1–5)</th>
                     <th className="p-3.5">Total Hrs</th>
                     <th className="p-3.5">OT</th>
                     <th className="p-3.5">Status</th>
@@ -987,53 +987,117 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                  {filteredSummaryRows.map((r) => (
-                    <tr key={r.empId} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="p-3.5">
-                        <div className="font-extrabold text-slate-900">{r.name}</div>
-                        <div className="text-[10px] text-slate-400">ID: {r.empId}</div>
-                      </td>
-                      <td className="p-3.5">{r.branch}</td>
-                      <td className="p-3.5 font-mono">
-                        {r.in1 || '-'} / {r.out1 || '-'}
-                      </td>
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-1.5">
-                          {r.in1Photo ? (
-                            <img src={r.in1Photo} alt="In" className="w-8 h-8 rounded-lg object-cover border border-slate-300" title="IN Selfie" />
-                          ) : null}
-                          {r.out1Photo ? (
-                            <img src={r.out1Photo} alt="Out" className="w-8 h-8 rounded-lg object-cover border border-slate-300" title="OUT Selfie" />
-                          ) : null}
-                          {!r.in1Photo && !r.out1Photo && <span className="text-slate-300 italic text-[10px]">None</span>}
-                        </div>
-                      </td>
-                      <td className="p-3.5 font-bold text-indigo-700">{r.totalHours}h</td>
-                      <td className="p-3.5 font-bold text-amber-700">{r.ot}h</td>
-                      <td className="p-3.5">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            r.status === 'Present'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : r.status === 'Missing OUT'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
-                        >
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <button
-                          onClick={() => handleOpenDetailModal(r)}
-                          className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px]"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View Proofs</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredSummaryRows.map((r) => {
+                    const activeSets = [
+                      { num: 1, inTime: r.in1, outTime: r.out1, inPhoto: r.in1Photo, outPhoto: r.out1Photo },
+                      { num: 2, inTime: r.in2, outTime: r.out2, inPhoto: r.in2Photo, outPhoto: r.out2Photo },
+                      { num: 3, inTime: r.in3, outTime: r.out3, inPhoto: r.in3Photo, outPhoto: r.out3Photo },
+                      { num: 4, inTime: r.in4, outTime: r.out4, inPhoto: r.in4Photo, outPhoto: r.out4Photo },
+                      { num: 5, inTime: r.in5, outTime: r.out5, inPhoto: r.in5Photo, outPhoto: r.out5Photo },
+                    ].filter((s) => s.inTime || s.outTime || s.inPhoto || s.outPhoto);
+
+                    return (
+                      <tr key={r.empId} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3.5">
+                          <div className="font-extrabold text-slate-900">{r.name}</div>
+                          <div className="text-[10px] text-slate-400">ID: {r.empId}</div>
+                        </td>
+                        <td className="p-3.5">{r.branch}</td>
+                        <td className="p-3.5 font-mono">
+                          {activeSets.length === 0 ? (
+                            <span className="text-slate-400 font-sans italic text-[11px]">- / -</span>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {activeSets.map((s) => (
+                                <div key={s.num} className="flex items-center gap-1.5 text-[11px]">
+                                  <span className="text-[9px] font-extrabold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                    Set {s.num}
+                                  </span>
+                                  <span className="text-emerald-700 font-bold">{s.inTime || '--:--'}</span>
+                                  <span className="text-slate-300">/</span>
+                                  <span className="text-rose-700 font-bold">{s.outTime || '--:--'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          {activeSets.length === 0 ? (
+                            <span className="text-slate-300 italic text-[10px]">None</span>
+                          ) : (
+                            <div className="space-y-2">
+                              {activeSets.map((s) => (
+                                <div key={s.num} className="flex items-center gap-2">
+                                  <span className="text-[9px] font-bold text-slate-400 w-9">Set {s.num}:</span>
+                                  <div className="flex items-center gap-2">
+                                    {s.inPhoto ? (
+                                      <a href={s.inPhoto} target="_blank" rel="noreferrer" className="group relative">
+                                        <img
+                                          src={s.inPhoto}
+                                          alt={`Set ${s.num} IN`}
+                                          className="w-9 h-9 rounded-lg object-cover border-2 border-emerald-400 shadow-2xs group-hover:scale-110 transition-transform"
+                                          title={`Set ${s.num} IN Selfie (${s.inTime || 'N/A'})`}
+                                        />
+                                        <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[8px] font-black px-1 rounded shadow-xs">
+                                          IN
+                                        </span>
+                                      </a>
+                                    ) : s.inTime ? (
+                                      <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
+                                        No IN Photo
+                                      </span>
+                                    ) : null}
+
+                                    {s.outPhoto ? (
+                                      <a href={s.outPhoto} target="_blank" rel="noreferrer" className="group relative">
+                                        <img
+                                          src={s.outPhoto}
+                                          alt={`Set ${s.num} OUT`}
+                                          className="w-9 h-9 rounded-lg object-cover border-2 border-rose-400 shadow-2xs group-hover:scale-110 transition-transform"
+                                          title={`Set ${s.num} OUT Selfie (${s.outTime || 'N/A'})`}
+                                        />
+                                        <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[8px] font-black px-1 rounded shadow-xs">
+                                          OUT
+                                        </span>
+                                      </a>
+                                    ) : s.outTime ? (
+                                      <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
+                                        No OUT Photo
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3.5 font-bold text-indigo-700">{r.totalHours}h</td>
+                        <td className="p-3.5 font-bold text-amber-700">{r.ot}h</td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              r.status === 'Present'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : r.status === 'Missing OUT'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <button
+                            onClick={() => handleOpenDetailModal(r)}
+                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px]"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Proofs</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
