@@ -4,36 +4,57 @@ import { AttendanceLog, DailySummaryRow } from '../types';
 
 // Helper to convert images to base64 data URLs for clean canvas rendering
 async function toDataURL(url: string): Promise<string> {
-  if (!url) return '';
-  if (url.startsWith('data:')) return url;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, { mode: 'cors', signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!res.ok) return url;
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve((reader.result as string) || url);
-      reader.onerror = () => resolve(url);
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    return url;
-  }
+  if (!url || typeof url !== 'string' || !url.trim()) return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('data:image/')) return trimmed;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width || 200;
+        canvas.height = img.naturalHeight || img.height || 200;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+          return;
+        }
+      } catch (e) {
+        console.warn('Canvas conversion failed:', e);
+      }
+      resolve(trimmed);
+    };
+    img.onerror = () => {
+      fetch(trimmed, { mode: 'cors' })
+        .then((r) => r.blob())
+        .then((blob) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string) || trimmed);
+          reader.onerror = () => resolve(trimmed);
+          reader.readAsDataURL(blob);
+        })
+        .catch(() => resolve(trimmed));
+    };
+    img.src = trimmed;
+  });
 }
 
-// Render HTML content safely inside an off-screen iframe to avoid Tailwind v4 oklch CSS conflicts and opacity issues
+// Render HTML content safely inside an iframe to avoid Tailwind v4 oklch CSS conflicts and opacity issues
 async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 2): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.left = '-9999px';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '0';
     iframe.style.top = '0';
     iframe.style.width = `${widthPx}px`;
-    iframe.style.height = '1000px';
+    iframe.style.height = '1200px';
     iframe.style.border = 'none';
+    iframe.style.opacity = '0.01';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.zIndex = '-99999';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow?.document;
@@ -50,6 +71,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
           <style>
             * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
             body { margin: 0; padding: 25px; background: #ffffff; color: #1e293b; width: ${widthPx}px; }
+            img { display: block; margin: 0 auto; }
           </style>
         </head>
         <body>${htmlContent}</body>
@@ -61,19 +83,30 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
       try {
         const body = doc.body;
 
-        // Wait for all images in iframe to fully load before rendering
+        // Force browser layout update
+        body.getBoundingClientRect();
+
+        // Wait for all images in iframe to fully decode & paint
         const images = Array.from(doc.images);
         await Promise.all(
           images.map((img) => {
-            if (img.complete) return Promise.resolve();
+            if (img.complete && img.naturalWidth > 0) return Promise.resolve();
             return new Promise((res) => {
-              img.onload = res;
-              img.onerror = res;
+              let done = false;
+              const finish = () => {
+                if (!done) {
+                  done = true;
+                  res(null);
+                }
+              };
+              img.onload = finish;
+              img.onerror = finish;
+              setTimeout(finish, 2000);
             });
           })
         );
 
-        await new Promise((res) => setTimeout(res, 100));
+        await new Promise((res) => setTimeout(res, 200));
 
         const fullHeight = Math.max(body.scrollHeight, body.offsetHeight, 600);
         iframe.style.height = `${fullHeight}px`;
@@ -82,11 +115,13 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
           scale,
           useCORS: true,
           allowTaint: true,
+          logging: false,
           width: widthPx,
           height: fullHeight,
           windowWidth: widthPx,
           windowHeight: fullHeight,
           backgroundColor: '#ffffff',
+          imageTimeout: 15000,
         });
 
         document.body.removeChild(iframe);
@@ -95,7 +130,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
         if (document.body.contains(iframe)) document.body.removeChild(iframe);
         reject(err);
       }
-    }, 150);
+    }, 200);
   });
 }
 
