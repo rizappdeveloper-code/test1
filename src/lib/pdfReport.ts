@@ -88,7 +88,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
           <style>
             * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
             body { margin: 0; padding: 25px; background: #ffffff; color: #1e293b; width: ${widthPx}px; }
-            img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+            img { display: block; margin: 0 auto; max-width: 100%; }
           </style>
         </head>
         <body>${htmlContent}</body>
@@ -319,11 +319,11 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
       <thead>
         <tr style="background-color: #1e293b; color: #ffffff; font-size: 12px;">
-          <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 22%;">Employee Details</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 18%;">Employee Details</th>
           <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 12%;">Branch</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 42%;">Shift Punches & Selfie Proofs</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 8%;">Hours</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 8%;">OT</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 50%;">Shift Punches & Selfie Proofs</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">Hours</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">OT</th>
           <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 8%;">Status</th>
         </tr>
       </thead>
@@ -346,17 +346,17 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
       if (!time && !photoUrl) return '';
       const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
       const imgTag = validPhoto
-        ? `<img src="${validPhoto}" style="width: 180px; height: 180px; object-fit: cover; border-radius: 10px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
-        : `<div style="width: 180px; height: 180px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+        ? `<img src="${validPhoto}" style="width: 140px; height: 140px; max-width: 140px; max-height: 140px; object-fit: cover; border-radius: 8px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
+        : `<div style="width: 140px; height: 140px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
       const isIN = label.toUpperCase().includes('IN');
       const typeColor = isIN ? '#059669' : '#dc2626';
 
       return `
-        <div style="text-align: center; border: 1px solid #cbd5e1; border-radius: 8px; padding: 5px; background: #ffffff; min-width: 80px; display: inline-block; margin: 3px; vertical-align: top;">
+        <div style="width: 154px; text-align: center; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; background: #ffffff; display: inline-block; margin: 4px; vertical-align: top; box-sizing: border-box;">
           ${imgTag}
-          <div style="font-size: 10px; font-weight: 800; color: ${typeColor}; margin-top: 4px;">Type: ${label}</div>
-          <div style="font-size: 9.5px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${time || '--:--'}</div>
+          <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px;">Type: ${label}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${time || '--:--'}</div>
         </div>
       `;
     };
