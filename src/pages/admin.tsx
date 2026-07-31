@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateFormattedPDF, generateSelfiePDF, generateLiveSelfiePDF } from '../lib/pdfReport';
 import BatchSelfieModal from '../components/BatchSelfieModal';
+import SuperAdminCrud from '../components/SuperAdminCrud';
 import { 
   ShieldCheck, 
   Lock, 
@@ -31,7 +32,8 @@ import {
   HelpCircle,
   Folder,
   ExternalLink,
-  FileArchive
+  FileArchive,
+  Database
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -39,7 +41,7 @@ export default function AdminPage() {
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'live' | 'summary' | 'monthly'>('live');
+  const [activeTab, setActiveTab] = useState<'live' | 'summary' | 'monthly' | 'crud'>('live');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().substring(0, 7));
   const [selectedBranch, setSelectedBranch] = useState<string>('');
@@ -759,23 +761,36 @@ export default function AdminPage() {
         >
           Monthly Overview
         </button>
+        <button
+          onClick={() => setActiveTab('crud')}
+          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === 'crud' ? 'bg-slate-900 text-amber-400 shadow-sm ring-1 ring-slate-800' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5 text-amber-400" />
+          <span>Super Admin CRUD</span>
+        </button>
       </div>
 
-      {/* Stats Counter Bar */}
-      <div className="grid grid-cols-3 gap-4 print:hidden">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs text-center">
-          <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Total Staff</div>
-          <div className="text-2xl font-black text-slate-900 mt-1">{totalEmployeesCount}</div>
-        </div>
-        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 shadow-xs text-center">
-          <div className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Active SHIFT-IN</div>
-          <div className="text-2xl font-black text-emerald-800 mt-1">{activeInCount}</div>
-        </div>
-        <div className="bg-rose-50 p-4 rounded-2xl border border-rose-200 shadow-xs text-center">
-          <div className="text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Completed OUT</div>
-          <div className="text-2xl font-black text-rose-800 mt-1">{finishedOutCount}</div>
-        </div>
-      </div>
+      {activeTab === 'crud' ? (
+        <SuperAdminCrud branches={branches} />
+      ) : (
+        <>
+          {/* Stats Counter Bar */}
+          <div className="grid grid-cols-3 gap-4 print:hidden">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs text-center">
+              <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Total Staff</div>
+              <div className="text-2xl font-black text-slate-900 mt-1">{totalEmployeesCount}</div>
+            </div>
+            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 shadow-xs text-center">
+              <div className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Active SHIFT-IN</div>
+              <div className="text-2xl font-black text-emerald-800 mt-1">{activeInCount}</div>
+            </div>
+            <div className="bg-rose-50 p-4 rounded-2xl border border-rose-200 shadow-xs text-center">
+              <div className="text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Completed OUT</div>
+              <div className="text-2xl font-black text-rose-800 mt-1">{finishedOutCount}</div>
+            </div>
+          </div>
 
       {/* Filters & Export Toolbar */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-3 print:hidden">
@@ -1132,6 +1147,8 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+    </>
+  )}
 
       {/* Detail Modal Overlay for Shift Proofs */}
       {selectedDetailRow && (
