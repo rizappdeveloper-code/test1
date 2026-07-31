@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { AttendanceLog, DailySummaryRow } from '../types';
+import { formatISTDateTime, formatISTTime } from './dateUtils';
 
 // Helper to convert images to base64 data URLs for clean canvas rendering
 async function toDataURL(url: string): Promise<string> {
@@ -198,7 +199,7 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
     <div style="margin-bottom: 20px; font-size: 11px; color: #475569;">
       <strong>Type:</strong> Daily Summary Report &nbsp;&nbsp;|&nbsp;&nbsp;
       <strong>Total Records:</strong> ${data.length} &nbsp;&nbsp;|&nbsp;&nbsp;
-      <strong>Generated:</strong> ${new Date().toLocaleString()}
+      <strong>Generated:</strong> ${formatISTDateTime(new Date())}
     </div>
 
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
@@ -440,7 +441,7 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
     const typeColor = l.type === 'IN' ? '#059669' : '#dc2626';
     const typeBg = l.type === 'IN' ? '#ecfdf5' : '#fef2f2';
 
-    const punchTimeStr = l.timestamp ? new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--';
+    const punchTimeStr = formatISTTime(l.timestamp, true);
 
     const photoUrl = l.photoUrlBase64 || l.photo_url || '';
     const imgTag = photoUrl && photoUrl.trim() !== ''
