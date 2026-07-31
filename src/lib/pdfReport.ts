@@ -8,19 +8,19 @@ async function toDataURL(url: string): Promise<string> {
   if (url.startsWith('data:')) return url;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, { mode: 'cors', signal: controller.signal });
     clearTimeout(timeoutId);
-    if (!res.ok) return '';
+    if (!res.ok) return url;
     const blob = await res.blob();
     return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve((reader.result as string) || '');
-      reader.onerror = () => resolve('');
+      reader.onloadend = () => resolve((reader.result as string) || url);
+      reader.onerror = () => resolve(url);
       reader.readAsDataURL(blob);
     });
   } catch (e) {
-    return '';
+    return url;
   }
 }
 
@@ -60,6 +60,21 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
     setTimeout(async () => {
       try {
         const body = doc.body;
+
+        // Wait for all images in iframe to fully load before rendering
+        const images = Array.from(doc.images);
+        await Promise.all(
+          images.map((img) => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((res) => {
+              img.onload = res;
+              img.onerror = res;
+            });
+          })
+        );
+
+        await new Promise((res) => setTimeout(res, 100));
+
         const fullHeight = Math.max(body.scrollHeight, body.offsetHeight, 600);
         iframe.style.height = `${fullHeight}px`;
 
@@ -80,7 +95,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
         if (document.body.contains(iframe)) document.body.removeChild(iframe);
         reject(err);
       }
-    }, 200);
+    }, 150);
   });
 }
 
@@ -206,7 +221,7 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
 
 // 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies)
 export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
-  // Pre-convert images
+  // Pre-convert images to base64 data URLs
   const processRows = await Promise.all(
     data.map(async (row) => ({
       ...row,
@@ -214,6 +229,12 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
       out1Photo: row.out1Photo ? await toDataURL(row.out1Photo) : '',
       in2Photo: row.in2Photo ? await toDataURL(row.in2Photo) : '',
       out2Photo: row.out2Photo ? await toDataURL(row.out2Photo) : '',
+      in3Photo: row.in3Photo ? await toDataURL(row.in3Photo) : '',
+      out3Photo: row.out3Photo ? await toDataURL(row.out3Photo) : '',
+      in4Photo: row.in4Photo ? await toDataURL(row.in4Photo) : '',
+      out4Photo: row.out4Photo ? await toDataURL(row.out4Photo) : '',
+      in5Photo: row.in5Photo ? await toDataURL(row.in5Photo) : '',
+      out5Photo: row.out5Photo ? await toDataURL(row.out5Photo) : '',
     }))
   );
 
@@ -261,17 +282,18 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
       statusBg = '#fffbeb';
     }
 
-    const makePunchBox = (label: string, time: string, photoUrl: string) => {
+    const makePunchBox = (label: string, time: string, photoUrl?: string) => {
       if (!time && !photoUrl) return '';
-      const imgTag = photoUrl
-        ? `<img src="${photoUrl}" style="width: 65px; height: 65px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
-        : `<div style="width: 65px; height: 65px; background: #e2e8f0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+      const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
+      const imgTag = validPhoto
+        ? `<img src="${validPhoto}" style="width: 65px; height: 65px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
+        : `<div style="width: 65px; height: 65px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
-      const isIN = label.includes('IN');
+      const isIN = label.toUpperCase().includes('IN');
       const typeColor = isIN ? '#059669' : '#dc2626';
 
       return `
-        <div style="text-align: center; border: 1px solid #cbd5e1; border-radius: 8px; padding: 5px; background: #ffffff; min-width: 80px; display: inline-block; margin: 2px; vertical-align: top;">
+        <div style="text-align: center; border: 1px solid #cbd5e1; border-radius: 8px; padding: 5px; background: #ffffff; min-width: 80px; display: inline-block; margin: 3px; vertical-align: top;">
           ${imgTag}
           <div style="font-size: 10px; font-weight: 800; color: ${typeColor}; margin-top: 4px;">Type: ${label}</div>
           <div style="font-size: 9.5px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${time || '--:--'}</div>
@@ -285,8 +307,14 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
     } else {
       punchesHtml += makePunchBox('IN 1', row.in1, row.in1Photo);
       punchesHtml += makePunchBox('OUT 1', row.out1, row.out1Photo);
-      if (row.in2 || row.out2Photo) punchesHtml += makePunchBox('IN 2', row.in2, row.in2Photo);
+      if (row.in2 || row.in2Photo) punchesHtml += makePunchBox('IN 2', row.in2, row.in2Photo);
       if (row.out2 || row.out2Photo) punchesHtml += makePunchBox('OUT 2', row.out2, row.out2Photo);
+      if (row.in3 || row.in3Photo) punchesHtml += makePunchBox('IN 3', row.in3, row.in3Photo);
+      if (row.out3 || row.out3Photo) punchesHtml += makePunchBox('OUT 3', row.out3, row.out3Photo);
+      if (row.in4 || row.in4Photo) punchesHtml += makePunchBox('IN 4', row.in4, row.in4Photo);
+      if (row.out4 || row.out4Photo) punchesHtml += makePunchBox('OUT 4', row.out4, row.out4Photo);
+      if (row.in5 || row.in5Photo) punchesHtml += makePunchBox('IN 5', row.in5, row.in5Photo);
+      if (row.out5 || row.out5Photo) punchesHtml += makePunchBox('OUT 5', row.out5, row.out5Photo);
     }
 
     html += `
@@ -365,17 +393,18 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
     const typeColor = l.type === 'IN' ? '#059669' : '#dc2626';
     const typeBg = l.type === 'IN' ? '#ecfdf5' : '#fef2f2';
 
-    const punchTimeStr = new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const punchTimeStr = l.timestamp ? new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--';
 
-    const imgTag = l.photoUrlBase64
-      ? `<img src="${l.photoUrlBase64}" style="width: 75px; height: 75px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
-      : `<div style="width: 75px; height: 75px; background: #e2e8f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+    const photoUrl = l.photoUrlBase64 || l.photo_url || '';
+    const imgTag = photoUrl && photoUrl.trim() !== ''
+      ? `<img src="${photoUrl}" style="width: 75px; height: 75px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
+      : `<div style="width: 75px; height: 75px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
     const selfieBlock = `
       <div style="text-align: center; padding: 2px;">
         ${imgTag}
-        <div style="font-size: 10px; font-weight: 800; color: ${typeColor}; margin-top: 4px;">Type: ${l.type}</div>
-        <div style="font-size: 9.5px; font-weight: 700; color: #1e3a8a; margin-top: 1px;">${punchTimeStr}</div>
+        <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px;">Type: ${l.type}</div>
+        <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${punchTimeStr}</div>
       </div>
     `;
 
