@@ -754,37 +754,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Google Drive Selfies Banner */}
-      {driveFolderUrl && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-950 print:hidden">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
-              <Folder className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="font-extrabold text-emerald-900 text-sm flex items-center gap-2">
-                <span>AQSA Attendance Selfies Folder</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800 text-[10px] font-bold">
-                  Google Drive Live
-                </span>
-              </div>
-              <p className="text-emerald-700 mt-0.5">
-                All employee attendance selfie proofs are automatically uploaded to your Google Drive folder: <strong>AQSA Attendance Selfies</strong> {driveUserEmail ? `(${driveUserEmail})` : ''}
-              </p>
-            </div>
-          </div>
-          <a
-            href={driveFolderUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap text-xs shrink-0"
-          >
-            <span>Open Google Drive Folder</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="flex border border-slate-200 bg-white rounded-2xl p-1.5 print:hidden">
         <button
