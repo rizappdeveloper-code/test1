@@ -423,12 +423,13 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
 
     try {
       const copy = { ...rec };
+      const nonce = Date.now() + Math.floor(Math.random() * 1000);
 
-      // Generate a new unique ID or remove auto-increment ID
-      if (selectedTable === 'attendance_logs' || selectedTable === 'branches') {
-        copy.id = String(Date.now() + Math.floor(Math.random() * 1000));
+      // Generate a new unique ID depending on whether original ID was number or string
+      if (typeof rec.id === 'number' || (typeof rec.id === 'string' && /^\d+$/.test(rec.id))) {
+        copy.id = Number(nonce);
       } else {
-        delete copy.id;
+        copy.id = `COPY_${nonce}`;
       }
 
       if ('created_at' in copy) {
@@ -457,13 +458,16 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
 
     try {
       const selectedRows = records.filter((r) => selectedIds.has(String(r.id)));
-      const copiesToInsert = selectedRows.map((rec) => {
+      const copiesToInsert = selectedRows.map((rec, i) => {
         const copy = { ...rec };
-        if (selectedTable === 'attendance_logs' || selectedTable === 'branches') {
-          copy.id = String(Date.now() + Math.floor(Math.random() * 10000));
+        const nonce = Date.now() + i * 17 + Math.floor(Math.random() * 1000);
+
+        if (typeof rec.id === 'number' || (typeof rec.id === 'string' && /^\d+$/.test(rec.id))) {
+          copy.id = Number(nonce);
         } else {
-          delete copy.id;
+          copy.id = `COPY_${nonce}`;
         }
+
         if ('created_at' in copy) copy.created_at = new Date().toISOString();
         return copy;
       });
@@ -563,13 +567,20 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
 
     try {
       // Clean rows before insertion
-      const cleanedRows = parsedPasteRows.map((r) => {
+      const cleanedRows = parsedPasteRows.map((r, i) => {
         const clean: Record<string, any> = {};
         Object.keys(r).forEach((k) => {
           if (r[k] !== '' && r[k] !== undefined && r[k] !== null) {
             clean[k] = r[k];
           }
         });
+
+        // Ensure ID if missing
+        if (!clean.id) {
+          const nonce = Date.now() + i * 13 + Math.floor(Math.random() * 1000);
+          clean.id = `ID_${nonce}`;
+        }
+
         return clean;
       });
 
