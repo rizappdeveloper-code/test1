@@ -29,7 +29,6 @@ async function toDataURL(url: string): Promise<string> {
     console.warn('Proxy image fetch error:', err);
   }
 
-  // Fallback to client-side Image canvas conversion
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -52,7 +51,6 @@ async function toDataURL(url: string): Promise<string> {
   });
 }
 
-// Safely prepares image URL with fallback to original string if conversion yields empty
 async function preparePhoto(url?: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
@@ -60,7 +58,6 @@ async function preparePhoto(url?: string): Promise<string> {
   return dataUrl || trimmed;
 }
 
-// Render HTML content safely inside an iframe to avoid Tailwind v4 oklch CSS conflicts
 async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 2): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
@@ -88,7 +85,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
           <style>
             * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
             body { margin: 0; padding: 25px; background: #ffffff; color: #1e293b; width: ${widthPx}px; }
-            img { display: block; margin: 0 auto; max-width: 100%; }
+            img { display: block; margin: 0 auto; max-width: 100%; object-fit: cover; }
           </style>
         </head>
         <body>${htmlContent}</body>
@@ -99,39 +96,23 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
     setTimeout(async () => {
       try {
         const body = doc.body;
-
-        // Force browser layout update
         body.getBoundingClientRect();
-
-        // Wait for all images in iframe to fully decode & paint to prevent decoding lag
         const images = Array.from(doc.images);
         await Promise.all(
           images.map(async (img) => {
-            try {
-              if (img.decode) {
-                await img.decode();
-              }
-            } catch (e) {
-              console.warn('Image decode wait error:', e);
-            }
+            try { if (img.decode) await img.decode(); } catch (e) {}
             if (img.complete && img.naturalWidth > 0) return Promise.resolve();
             return new Promise((res) => {
               let done = false;
-              const finish = () => {
-                if (!done) {
-                  done = true;
-                  res(null);
-                }
-              };
+              const finish = () => { if (!done) { done = true; res(null); } };
               img.onload = finish;
               img.onerror = finish;
-              setTimeout(finish, 3000);
+              setTimeout(finish, 5000);
             });
           })
         );
 
-        // Extra delay to ensure browser rendering pipeline finishes painting image pixels
-        await new Promise((res) => setTimeout(res, 400));
+        await new Promise((res) => setTimeout(res, 800));
 
         const fullHeight = Math.max(body.scrollHeight, body.offsetHeight, 600);
         iframe.style.height = `${fullHeight}px`;
@@ -139,14 +120,14 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
         const canvas = await html2canvas(body, {
           scale,
           useCORS: true,
-          allowTaint: false, // Set to false so canvas can be safely exported via toDataURL without SecurityError
+          allowTaint: false,
           logging: false,
           width: widthPx,
           height: fullHeight,
           windowWidth: widthPx,
           windowHeight: fullHeight,
           backgroundColor: '#ffffff',
-          imageTimeout: 15000,
+          imageTimeout: 20000,
         });
 
         document.body.removeChild(iframe);
@@ -155,7 +136,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
         if (document.body.contains(iframe)) document.body.removeChild(iframe);
         reject(err);
       }
-    }, 300);
+    }, 500);
   });
 }
 
@@ -164,7 +145,6 @@ function saveCanvasToPdf(canvas: HTMLCanvasElement, filename: string) {
   const pdf = new jsPDF('landscape', 'mm', 'a4');
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfPageHeight = pdf.internal.pageSize.getHeight();
-
   const imgWidth = pdfWidth;
   const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
@@ -173,10 +153,8 @@ function saveCanvasToPdf(canvas: HTMLCanvasElement, filename: string) {
   } else {
     let heightLeft = imgHeight;
     let position = 0;
-
     pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
     heightLeft -= pdfPageHeight;
-
     while (heightLeft > 0) {
       position -= pdfPageHeight;
       pdf.addPage();
@@ -184,11 +162,10 @@ function saveCanvasToPdf(canvas: HTMLCanvasElement, filename: string) {
       heightLeft -= pdfPageHeight;
     }
   }
-
   pdf.save(filename);
 }
 
-// 1. Generate Standard Formatted Summary PDF (Matching GAS generateFormattedPDF)
+// 1. Standard PDF
 export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: string) {
   let html = `
     <div style="border-bottom: 4px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px;">
@@ -196,33 +173,24 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
         <tr>
           <td>
             <h1 style="margin: 0; color: #1e3a8a; font-size: 24px; font-weight: 800;">AQSA ATTENDANCE REPORT</h1>
-            <p style="margin: 5px 0 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Official Summary log sheets</p>
           </td>
           <td align="right">
-            <div style="background: #f1f5f9; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; width: 140px;">
-              <span style="font-size: 10px; color: #64748b; font-weight: 800; display: block;">REPORT DATE</span>
+            <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
               <span style="font-size: 16px; color: #1e3a8a; font-weight: 800;">${dateStr}</span>
             </div>
           </td>
         </tr>
       </table>
     </div>
-
-    <div style="margin-bottom: 20px; font-size: 11px; color: #475569;">
-      <strong>Type:</strong> Daily Summary Report &nbsp;&nbsp;|&nbsp;&nbsp;
-      <strong>Total Records:</strong> ${data.length} &nbsp;&nbsp;|&nbsp;&nbsp;
-      <strong>Generated:</strong> ${formatISTDateTime(new Date())}
-    </div>
-
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <table style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background-color: #1e293b; color: #ffffff; font-size: 12px;">
-          <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 25%;">Employee Details</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 15%;">Branch</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 30%;">Work Intervals (IN / OUT)</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 10%;">Hrs</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 10%;">OT</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 10%;">Status</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Employee</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Branch</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Work Intervals</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Hrs</th>
+          <th style="padding: 10px; border: 1px solid #334155;">OT</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Status</th>
         </tr>
       </thead>
       <tbody>
@@ -230,58 +198,32 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
 
   data.forEach((row, index) => {
     const bgColor = index % 2 === 0 ? '#ffffff' : '#f8fafc';
-    let statusColor = '#059669';
-    let statusBg = '#ecfdf5';
-    if (row.status === 'Absent') {
-      statusColor = '#dc2626';
-      statusBg = '#fef2f2';
-    } else if (row.status === 'Missing OUT') {
-      statusColor = '#d97706';
-      statusBg = '#fffbeb';
-    }
-
     const intervals = [];
     if (row.in1 || row.out1) intervals.push(`${row.in1 || '-'} / ${row.out1 || '-'}`);
     if (row.in2 || row.out2) intervals.push(`${row.in2 || '-'} / ${row.out2 || '-'}`);
     if (row.in3 || row.out3) intervals.push(`${row.in3 || '-'} / ${row.out3 || '-'}`);
     if (row.in4 || row.out4) intervals.push(`${row.in4 || '-'} / ${row.out4 || '-'}`);
     if (row.in5 || row.out5) intervals.push(`${row.in5 || '-'} / ${row.out5 || '-'}`);
-    const intervalsStr = intervals.length > 0 ? intervals.join('<br>') : '-';
 
     html += `
-      <tr style="background-color: ${bgColor}; font-size: 11px; color: #1e293b;">
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">
-          <div style="font-weight: 800; color: #1e293b; font-size: 12px;">${row.name}</div>
-          <div style="color: #64748b; font-size: 10px;">ID: ${row.empId}</div>
-        </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${row.branch}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 10px; font-family: monospace;">${intervalsStr}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #1e3a8a;">${row.totalHours}h</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #ea580c;">${row.ot}h</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">
-          <span style="background: ${statusBg}; color: ${statusColor}; padding: 3px 8px; border-radius: 10px; font-weight: 800; font-size: 10px; border: 1px solid ${statusColor}44; display: inline-block;">
-            ${row.status}
-          </span>
-        </td>
+      <tr style="background-color: ${bgColor}; font-size: 11px;">
+        <td style="padding: 8px; border: 1px solid #e2e8f0;"><b>${row.name}</b><br>ID: ${row.empId}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${row.branch}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${intervals.join('<br>')}</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${row.totalHours}h</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${row.ot}h</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${row.status}</td>
       </tr>
     `;
   });
-
-  html += `
-      </tbody>
-    </table>
-    <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; text-align: center;">
-      Generated from AQSA Enterprise Portal | System Key: AQSA-PDF-${Math.random().toString(36).substring(2, 9).toUpperCase()}
-    </div>
-  `;
+  html += `</tbody></table>`;
 
   const canvas = await renderHtmlToCanvas(html, 1050, 2);
-  saveCanvasToPdf(canvas, `AQSA_Daily_Summary_${dateStr}.pdf`);
+  saveCanvasToPdf(canvas, `AQSA_Summary_${dateStr}.pdf`);
 }
 
-// 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies)
+// 2. Selfie Proofs PDF (FIXED SECTION)
 export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
-  // Pre-convert images to base64 data URLs with fallback to original URL
   const processRows = await Promise.all(
     data.map(async (row) => ({
       ...row,
@@ -299,32 +241,14 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
   );
 
   let html = `
-    <div style="border-bottom: 4px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px;">
-      <table width="100%" style="border-collapse: collapse;">
-        <tr>
-          <td>
-            <h1 style="margin: 0; color: #1e3a8a; font-size: 24px; font-weight: 800;">AQSA ATTENDANCE & VERIFICATION REPORT</h1>
-            <p style="margin: 5px 0 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase;">Daily Summary with Selfie Proofs</p>
-          </td>
-          <td align="right">
-            <div style="background: #f1f5f9; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; width: 140px;">
-              <span style="font-size: 10px; color: #64748b; font-weight: 800; display: block;">REPORT DATE</span>
-              <span style="font-size: 16px; color: #1e3a8a; font-weight: 800;">${dateStr}</span>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <h1 style="color: #1e3a8a; border-bottom: 4px solid #1e3a8a; padding-bottom: 10px;">AQSA VERIFICATION REPORT - ${dateStr}</h1>
+    <table style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background-color: #1e293b; color: #ffffff; font-size: 12px;">
-          <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 18%;">Employee Details</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 12%;">Branch</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 50%;">Shift Punches & Selfie Proofs</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">Hours</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">OT</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 8%;">Status</th>
+          <th style="padding: 10px; border: 1px solid #334155; width: 15%;">Employee</th>
+          <th style="padding: 10px; border: 1px solid #334155; width: 65%;">Selfie Proofs</th>
+          <th style="padding: 10px; border: 1px solid #334155; width: 10%;">Hrs</th>
+          <th style="padding: 10px; border: 1px solid #334155; width: 10%;">Status</th>
         </tr>
       </thead>
       <tbody>
@@ -332,87 +256,46 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
 
   processRows.forEach((row, index) => {
     const bgColor = index % 2 === 0 ? '#ffffff' : '#f8fafc';
-    let statusColor = '#059669';
-    let statusBg = '#ecfdf5';
-    if (row.status === 'Absent') {
-      statusColor = '#dc2626';
-      statusBg = '#fef2f2';
-    } else if (row.status === 'Missing OUT') {
-      statusColor = '#d97706';
-      statusBg = '#fffbeb';
-    }
 
-    const makePunchBox = (label: string, time: string, photoUrl?: string) => {
-      if (!time && !photoUrl) return '';
-      const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
-      const imgTag = validPhoto
-        ? `<img src="${validPhoto}" width="130" height="130" style="width: 130px; height: 130px; border-radius: 6px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
-        : `<div style="width: 130px; height: 130px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
-
-      const isIN = label.toUpperCase().includes('IN');
-      const typeColor = isIN ? '#059669' : '#dc2626';
-
+    const makeBox = (label: string, time: string, photo?: string) => {
+      if (!time && !photo) return '';
+      const isIN = label.includes('IN');
+      const color = isIN ? '#059669' : '#dc2626';
+      const img = photo && photo.length > 50 
+        ? `<img src="${photo}" style="width: 110px; height: 110px; border-radius: 5px; border: 1px solid #ccc; display: block;" />`
+        : `<div style="width: 110px; height: 110px; background: #eee; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 10px;">No Photo</div>`;
+      
       return `
-        <table style="display: inline-table; width: 144px; margin: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; vertical-align: top; border-collapse: separate; border-spacing: 0; box-sizing: border-box; text-align: center;">
-          <tr>
-            <td style="padding: 6px; text-align: center;">
-              ${imgTag}
-              <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px; text-align: center;">Type: ${label}</div>
-              <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px; text-align: center;">${time || '--:--'}</div>
-            </td>
-          </tr>
-        </table>
+        <div style="display: inline-block; margin: 5px; padding: 5px; border: 1px solid #e2e8f0; background: white; text-align: center; vertical-align: top;">
+          ${img}
+          <div style="font-size: 10px; font-weight: bold; color: ${color}; margin-top: 3px;">${label}</div>
+          <div style="font-size: 10px; font-weight: bold;">${time || '--:--'}</div>
+        </div>
       `;
     };
 
-    let punchesHtml = '';
-    if (row.status === 'Absent') {
-      punchesHtml = `<span style="color: #cbd5e1; font-style: italic; font-size: 11px;">Employee Absent</span>`;
-    } else {
-      punchesHtml += makePunchBox('IN 1', row.in1, row.in1Photo);
-      punchesHtml += makePunchBox('OUT 1', row.out1, row.out1Photo);
-      if (row.in2 || row.in2Photo) punchesHtml += makePunchBox('IN 2', row.in2, row.in2Photo);
-      if (row.out2 || row.out2Photo) punchesHtml += makePunchBox('OUT 2', row.out2, row.out2Photo);
-      if (row.in3 || row.in3Photo) punchesHtml += makePunchBox('IN 3', row.in3, row.in3Photo);
-      if (row.out3 || row.out3Photo) punchesHtml += makePunchBox('OUT 3', row.out3, row.out3Photo);
-      if (row.in4 || row.in4Photo) punchesHtml += makePunchBox('IN 4', row.in4, row.in4Photo);
-      if (row.out4 || row.out4Photo) punchesHtml += makePunchBox('OUT 4', row.out4, row.out4Photo);
-      if (row.in5 || row.in5Photo) punchesHtml += makePunchBox('IN 5', row.in5, row.in5Photo);
-      if (row.out5 || row.out5Photo) punchesHtml += makePunchBox('OUT 5', row.out5, row.out5Photo);
-    }
+    let proofs = makeBox('IN 1', row.in1, row.in1Photo) + makeBox('OUT 1', row.out1, row.out1Photo) +
+                 makeBox('IN 2', row.in2, row.in2Photo) + makeBox('OUT 2', row.out2, row.out2Photo) +
+                 makeBox('IN 3', row.in3, row.in3Photo) + makeBox('OUT 3', row.out3, row.out3Photo) +
+                 makeBox('IN 4', row.in4, row.in4Photo) + makeBox('OUT 4', row.out4, row.out4Photo) +
+                 makeBox('IN 5', row.in5, row.in5Photo) + makeBox('OUT 5', row.out5, row.out5Photo);
 
     html += `
-      <tr style="background-color: ${bgColor}; font-size: 11px; color: #1e293b;">
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">
-          <div style="font-weight: 800; color: #1e293b; font-size: 12px;">${row.name}</div>
-          <div style="color: #64748b; font-size: 10px;">ID: ${row.empId}</div>
-        </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${row.branch}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${punchesHtml}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #1e3a8a;">${row.totalHours}h</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #ea580c;">${row.ot}h</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">
-          <span style="background: ${statusBg}; color: ${statusColor}; padding: 3px 8px; border-radius: 10px; font-weight: 800; font-size: 10px; border: 1px solid ${statusColor}44; display: inline-block;">
-            ${row.status}
-          </span>
-        </td>
+      <tr style="background-color: ${bgColor};">
+        <td style="padding: 10px; border: 1px solid #e2e8f0; vertical-align: top;"><b>${row.name}</b><br>ID: ${row.empId}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${proofs || 'No records'}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: top;"><b>${row.totalHours}h</b></td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: top;">${row.status}</td>
       </tr>
     `;
   });
 
-  html += `
-      </tbody>
-    </table>
-    <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; text-align: center;">
-      Verification Security Key: AQSA-SELFIE-${Math.random().toString(36).substring(2, 9).toUpperCase()}
-    </div>
-  `;
-
-  const canvas = await renderHtmlToCanvas(html, 1100, 1.5);
-  saveCanvasToPdf(canvas, `AQSA_Verification_Selfie_Report_${dateStr}.pdf`);
+  html += `</tbody></table>`;
+  const canvas = await renderHtmlToCanvas(html, 1150, 1.5);
+  saveCanvasToPdf(canvas, `AQSA_Selfie_Report_${dateStr}.pdf`);
 }
 
-// 3. Generate Live Punch Verification PDF with Selfies (Matching GAS downloadFilteredLivePDFWithSelfies)
+// 3. Live Punch PDF
 export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: string) {
   const processLogs = await Promise.all(
     data.map(async (l) => ({
@@ -422,31 +305,13 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
   );
 
   let html = `
-    <div style="border-bottom: 4px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px;">
-      <table width="100%" style="border-collapse: collapse;">
-        <tr>
-          <td>
-            <h1 style="margin: 0; color: #1e3a8a; font-size: 24px; font-weight: 800;">AQSA LIVE VERIFICATION REPORT</h1>
-            <p style="margin: 5px 0 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase;">Chronological Punch Logs with Selfie Proofs</p>
-          </td>
-          <td align="right">
-            <div style="background: #f1f5f9; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; width: 140px;">
-              <span style="font-size: 10px; color: #64748b; font-weight: 800; display: block;">REPORT DATE</span>
-              <span style="font-size: 16px; color: #1e3a8a; font-weight: 800;">${dateStr}</span>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <h1 style="color: #1e3a8a; border-bottom: 4px solid #1e3a8a; padding-bottom: 10px;">AQSA LIVE LOGS - ${dateStr}</h1>
+    <table style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background-color: #1e293b; color: #ffffff; font-size: 12px;">
-          <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 25%;">Employee Details</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 15%;">Branch</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 22%;">Punch Information</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 15%;">Type</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 23%;">Selfie Photo Proof</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Employee</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Time & Type</th>
+          <th style="padding: 10px; border: 1px solid #334155;">Selfie Proof</th>
         </tr>
       </thead>
       <tbody>
@@ -454,53 +319,23 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
 
   processLogs.forEach((l, index) => {
     const bgColor = index % 2 === 0 ? '#ffffff' : '#f8fafc';
-    const typeColor = l.type === 'IN' ? '#059669' : '#dc2626';
-    const typeBg = l.type === 'IN' ? '#ecfdf5' : '#fef2f2';
-
-    const punchTimeStr = formatISTTime(l.timestamp, true);
-
-    const photoUrl = l.photoUrlBase64 || l.photo_url || '';
-    const imgTag = photoUrl && photoUrl.trim() !== ''
-      ? `<img src="${photoUrl}" width="160" height="160" style="width: 160px; height: 160px; border-radius: 10px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
-      : `<div style="width: 160px; height: 160px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
-
-    const selfieBlock = `
-      <div style="text-align: center; padding: 2px;">
-        ${imgTag}
-        <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px;">Type: ${l.type}</div>
-        <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${punchTimeStr}</div>
-      </div>
-    `;
+    const photo = l.photoUrlBase64 || '';
+    const img = photo.length > 50 
+      ? `<img src="${photo}" style="width: 150px; height: 150px; border-radius: 8px; border: 1px solid #ccc; display: block; margin: 0 auto;" />`
+      : `<div style="width: 150px; height: 150px; background: #eee; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; margin: 0 auto;">No Photo</div>`;
 
     html += `
-      <tr style="background-color: ${bgColor}; font-size: 11px; color: #1e293b;">
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">
-          <div style="font-weight: 800; color: #1e293b; font-size: 12px;">${l.emp_name}</div>
-          <div style="color: #64748b; font-size: 10px;">ID: ${l.emp_id}</div>
+      <tr style="background-color: ${bgColor};">
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;"><b>${l.emp_name}</b><br>ID: ${l.emp_id}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">
+          <b>${l.type}</b><br>${formatISTTime(l.timestamp, true)}
         </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${l.branch_name}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; line-height: 1.4;">
-          <div><b>Punch Time:</b> ${punchTimeStr}</div>
-          <div style="font-size: 10px; color: #64748b;">Distance: ${l.distance_m || 0}m</div>
-        </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">
-          <span style="background: ${typeBg}; color: ${typeColor}; padding: 3px 8px; border-radius: 10px; font-weight: 800; font-size: 10px; border: 1px solid ${typeColor}44; display: inline-block;">
-            SHIFT-${l.type}
-          </span>
-        </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${selfieBlock}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${img}</td>
       </tr>
     `;
   });
 
-  html += `
-      </tbody>
-    </table>
-    <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; text-align: center;">
-      Verification Security Key: AQSA-LIVE-SELFIE-${Math.random().toString(36).substring(2, 9).toUpperCase()}
-    </div>
-  `;
-
+  html += `</tbody></table>`;
   const canvas = await renderHtmlToCanvas(html, 1050, 1.5);
-  saveCanvasToPdf(canvas, `AQSA_Live_Selfie_Report_${dateStr}.pdf`);
+  saveCanvasToPdf(canvas, `AQSA_Live_Selfie_${dateStr}.pdf`);
 }
