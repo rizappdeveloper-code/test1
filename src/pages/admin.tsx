@@ -63,20 +63,6 @@ export default function AdminPage() {
   // Batch Selfie Download Modal State
   const [showBatchSelfieModal, setShowBatchSelfieModal] = useState<boolean>(false);
 
-  // Google Drive Integration State
-  const [driveFolderUrl, setDriveFolderUrl] = useState<string>('https://drive.google.com/drive/folders/1Ql8Xl-uyjQ_v5ibU2fzy8bCsMYk37XWw');
-  const [driveUserEmail, setDriveUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/api/drive-status')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.folderUrl) setDriveFolderUrl(data.folderUrl);
-        if (data.user?.emailAddress) setDriveUserEmail(data.user.emailAddress);
-      })
-      .catch((err) => console.warn('Drive status check error:', err));
-  }, [isAuthenticated]);
-
   // Admin Verification
   const handleVerifyPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -730,18 +716,6 @@ export default function AdminPage() {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {driveFolderUrl && (
-            <a
-              href={driveFolderUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-2 text-xs font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all flex items-center gap-1.5"
-            >
-              <Folder className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Google Drive Selfies</span>
-              <ExternalLink className="w-3 h-3 opacity-75" />
-            </a>
-          )}
           <button
             onClick={() => setShowQrModal(true)}
             className="px-3.5 py-2 text-xs font-extrabold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all flex items-center gap-1.5"
