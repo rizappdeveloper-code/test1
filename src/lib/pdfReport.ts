@@ -42,19 +42,18 @@ async function toDataURL(url: string): Promise<string> {
   });
 }
 
-// Render HTML content safely inside an iframe to avoid Tailwind v4 oklch CSS conflicts and opacity issues
+// Render HTML content safely inside an iframe to avoid Tailwind v4 oklch CSS conflicts
 async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 2): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.left = '0';
+    iframe.style.position = 'absolute';
+    iframe.style.left = '-9999px';
     iframe.style.top = '0';
     iframe.style.width = `${widthPx}px`;
     iframe.style.height = '1200px';
     iframe.style.border = 'none';
-    iframe.style.opacity = '0.01';
-    iframe.style.pointerEvents = 'none';
-    iframe.style.zIndex = '-99999';
+    iframe.style.opacity = '1';
+    iframe.style.visibility = 'visible';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow?.document;
