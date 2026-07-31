@@ -51,7 +51,7 @@ async function toDataURL(url: string): Promise<string> {
 async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 2): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
+    iframe.style.position = 'fixed';
     iframe.style.left = '-9999px';
     iframe.style.top = '0';
     iframe.style.width = `${widthPx}px`;
@@ -75,7 +75,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
           <style>
             * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
             body { margin: 0; padding: 25px; background: #ffffff; color: #1e293b; width: ${widthPx}px; }
-            img { display: block; margin: 0 auto; }
+            img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
           </style>
         </head>
         <body>${htmlContent}</body>
@@ -90,10 +90,17 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
         // Force browser layout update
         body.getBoundingClientRect();
 
-        // Wait for all images in iframe to fully decode & paint
+        // Wait for all images in iframe to fully decode & paint to prevent decoding lag
         const images = Array.from(doc.images);
         await Promise.all(
-          images.map((img) => {
+          images.map(async (img) => {
+            try {
+              if (img.decode) {
+                await img.decode();
+              }
+            } catch (e) {
+              console.warn('Image decode wait error:', e);
+            }
             if (img.complete && img.naturalWidth > 0) return Promise.resolve();
             return new Promise((res) => {
               let done = false;
@@ -105,12 +112,13 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
               };
               img.onload = finish;
               img.onerror = finish;
-              setTimeout(finish, 2000);
+              setTimeout(finish, 3000);
             });
           })
         );
 
-        await new Promise((res) => setTimeout(res, 200));
+        // Extra delay to ensure browser rendering pipeline finishes painting image pixels
+        await new Promise((res) => setTimeout(res, 400));
 
         const fullHeight = Math.max(body.scrollHeight, body.offsetHeight, 600);
         iframe.style.height = `${fullHeight}px`;
@@ -118,7 +126,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
         const canvas = await html2canvas(body, {
           scale,
           useCORS: true,
-          allowTaint: true,
+          allowTaint: false, // Set to false so canvas can be safely exported via toDataURL without SecurityError
           logging: false,
           width: widthPx,
           height: fullHeight,
@@ -134,7 +142,7 @@ async function renderHtmlToCanvas(htmlContent: string, widthPx: number, scale = 
         if (document.body.contains(iframe)) document.body.removeChild(iframe);
         reject(err);
       }
-    }, 200);
+    }, 300);
   });
 }
 
