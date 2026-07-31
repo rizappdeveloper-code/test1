@@ -8,6 +8,10 @@ async function toDataURL(url: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
   if (trimmed.startsWith('data:image/')) return trimmed;
+  if (trimmed.startsWith('/9j/')) return `data:image/jpeg;base64,${trimmed}`;
+  if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
+  if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
+  if (trimmed.startsWith('UklGR')) return `data:image/webp;base64,${trimmed}`;
 
   try {
     const res = await fetch('/api/proxy-image', {
@@ -17,7 +21,7 @@ async function toDataURL(url: string): Promise<string> {
     });
     if (res.ok) {
       const json = await res.json();
-      if (json.dataUrl && json.dataUrl.startsWith('data:image/')) {
+      if (json.dataUrl && (json.dataUrl.startsWith('data:image/') || json.dataUrl.startsWith('data:'))) {
         return json.dataUrl;
       }
     }
@@ -46,6 +50,14 @@ async function toDataURL(url: string): Promise<string> {
     img.onerror = () => resolve('');
     img.src = trimmed;
   });
+}
+
+// Safely prepares image URL with fallback to original string if conversion yields empty
+async function preparePhoto(url?: string): Promise<string> {
+  if (!url || typeof url !== 'string' || !url.trim()) return '';
+  const trimmed = url.trim();
+  const dataUrl = await toDataURL(trimmed);
+  return dataUrl || trimmed;
 }
 
 // Render HTML content safely inside an iframe to avoid Tailwind v4 oklch CSS conflicts
@@ -269,20 +281,20 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
 
 // 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies)
 export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
-  // Pre-convert images to base64 data URLs
+  // Pre-convert images to base64 data URLs with fallback to original URL
   const processRows = await Promise.all(
     data.map(async (row) => ({
       ...row,
-      in1Photo: row.in1Photo ? await toDataURL(row.in1Photo) : '',
-      out1Photo: row.out1Photo ? await toDataURL(row.out1Photo) : '',
-      in2Photo: row.in2Photo ? await toDataURL(row.in2Photo) : '',
-      out2Photo: row.out2Photo ? await toDataURL(row.out2Photo) : '',
-      in3Photo: row.in3Photo ? await toDataURL(row.in3Photo) : '',
-      out3Photo: row.out3Photo ? await toDataURL(row.out3Photo) : '',
-      in4Photo: row.in4Photo ? await toDataURL(row.in4Photo) : '',
-      out4Photo: row.out4Photo ? await toDataURL(row.out4Photo) : '',
-      in5Photo: row.in5Photo ? await toDataURL(row.in5Photo) : '',
-      out5Photo: row.out5Photo ? await toDataURL(row.out5Photo) : '',
+      in1Photo: await preparePhoto(row.in1Photo),
+      out1Photo: await preparePhoto(row.out1Photo),
+      in2Photo: await preparePhoto(row.in2Photo),
+      out2Photo: await preparePhoto(row.out2Photo),
+      in3Photo: await preparePhoto(row.in3Photo),
+      out3Photo: await preparePhoto(row.out3Photo),
+      in4Photo: await preparePhoto(row.in4Photo),
+      out4Photo: await preparePhoto(row.out4Photo),
+      in5Photo: await preparePhoto(row.in5Photo),
+      out5Photo: await preparePhoto(row.out5Photo),
     }))
   );
 
@@ -401,7 +413,7 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
   const processLogs = await Promise.all(
     data.map(async (l) => ({
       ...l,
-      photoUrlBase64: l.photo_url ? await toDataURL(l.photo_url) : '',
+      photoUrlBase64: await preparePhoto(l.photo_url),
     }))
   );
 
