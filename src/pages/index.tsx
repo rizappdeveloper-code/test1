@@ -383,14 +383,14 @@ export default function IndexPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto space-y-6">
+    <div className="max-w-md mx-auto space-y-4 sm:space-y-6 px-1 sm:px-0">
       {/* Brand Header */}
-      <div className="text-center space-y-1 py-2">
-        <div className="inline-flex items-center gap-2 text-indigo-600 font-extrabold text-2xl tracking-tight">
-          <ShieldCheck className="w-7 h-7" />
+      <div className="text-center space-y-1 py-1 sm:py-2">
+        <div className="inline-flex items-center gap-2 text-indigo-600 font-extrabold text-xl sm:text-2xl tracking-tight">
+          <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7" />
           <span>AQSA ATTENDANCE</span>
         </div>
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+        <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest">
           Professional Geofenced Portal
         </p>
       </div>
@@ -398,7 +398,7 @@ export default function IndexPage() {
       {/* Message Banners */}
       {message && (
         <div
-          className={`p-4 rounded-xl text-xs font-bold flex items-start gap-3 border ${
+          className={`p-3.5 sm:p-4 rounded-xl text-xs font-bold flex items-start gap-3 border ${
             message.type === 'success'
               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
               : message.type === 'error'
@@ -416,7 +416,7 @@ export default function IndexPage() {
       )}
 
       {/* Main Step Form Card */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4 sm:space-y-5">
         {/* Step 1: Branch Selection */}
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">

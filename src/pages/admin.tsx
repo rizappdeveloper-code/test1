@@ -743,16 +743,16 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 print:max-w-none print:p-0">
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 print:max-w-none print:p-0">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shrink-0">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold text-slate-900">Admin Report Dashboard</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">Admin Report Dashboard</h1>
               {userRole === 'SUPERADMIN' ? (
                 <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-[10px] font-black uppercase tracking-wider">
                   SUPERADMIN MODE
@@ -763,26 +763,26 @@ export default function AdminPage() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 font-semibold">
+            <p className="text-[11px] sm:text-xs text-slate-500 font-semibold">
               Live Attendance Records & Analytical Summaries
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+        <div className="flex items-center gap-2 self-stretch sm:self-auto flex-wrap">
           <button
             onClick={() => setShowQrModal(true)}
-            className="px-3.5 py-2 text-xs font-extrabold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all flex items-center gap-1.5"
+            className="flex-1 sm:flex-none justify-center px-3 py-2 text-xs font-extrabold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all flex items-center gap-1.5"
           >
             <QrCode className="w-3.5 h-3.5" />
-            <span>Generate QR Codes</span>
+            <span>Generate QR</span>
           </button>
           <button
             onClick={() => {
               setIsAuthenticated(false);
               setUserRole(null);
             }}
-            className="px-3.5 py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all flex items-center gap-1.5"
+            className="flex-1 sm:flex-none justify-center px-3 py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all flex items-center gap-1.5"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Lock Session</span>
@@ -791,27 +791,27 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border border-slate-200 bg-white rounded-2xl p-1.5 print:hidden">
+      <div className="grid grid-cols-2 sm:flex border border-slate-200 bg-white rounded-2xl p-1.5 gap-1 print:hidden">
         <button
           onClick={() => setActiveTab('live')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all ${
-            activeTab === 'live' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          className={`py-2.5 px-3 text-xs font-extrabold rounded-xl transition-all sm:flex-1 text-center ${
+            activeTab === 'live' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           Live Punch Logs
         </button>
         <button
           onClick={() => setActiveTab('summary')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all ${
-            activeTab === 'summary' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          className={`py-2.5 px-3 text-xs font-extrabold rounded-xl transition-all sm:flex-1 text-center ${
+            activeTab === 'summary' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          Daily Summary Report
+          Daily Summary
         </button>
         <button
           onClick={() => setActiveTab('monthly')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all ${
-            activeTab === 'monthly' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          className={`py-2.5 px-3 text-xs font-extrabold rounded-xl transition-all sm:flex-1 text-center ${
+            activeTab === 'monthly' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           Monthly Overview
@@ -824,13 +824,13 @@ export default function AdminPage() {
               setShowSuperAdminUnlockModal(true);
             }
           }}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'crud' ? 'bg-slate-900 text-amber-400 shadow-sm ring-1 ring-slate-800' : 'text-slate-600 hover:text-slate-900'
+          className={`py-2.5 px-3 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 sm:flex-1 text-center ${
+            activeTab === 'crud' ? 'bg-slate-900 text-amber-400 shadow-sm ring-1 ring-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Database className="w-3.5 h-3.5 text-amber-400" />
-          <span>Super Admin Section</span>
-          {userRole !== 'SUPERADMIN' && <Lock className="w-3 h-3 text-slate-400 ml-0.5" />}
+          <Database className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>Super Admin</span>
+          {userRole !== 'SUPERADMIN' && <Lock className="w-3 h-3 text-slate-400 ml-0.5 shrink-0" />}
         </button>
       </div>
 
@@ -839,23 +839,23 @@ export default function AdminPage() {
       ) : (
         <>
           {/* Stats Counter Bar */}
-          <div className="grid grid-cols-3 gap-4 print:hidden">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs text-center">
-              <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Total Staff</div>
-              <div className="text-2xl font-black text-slate-900 mt-1">{totalEmployeesCount}</div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 print:hidden">
+            <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs text-center">
+              <div className="text-[9px] sm:text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Total Staff</div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{totalEmployeesCount}</div>
             </div>
-            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 shadow-xs text-center">
-              <div className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Active SHIFT-IN</div>
-              <div className="text-2xl font-black text-emerald-800 mt-1">{activeInCount}</div>
+            <div className="bg-emerald-50 p-3 sm:p-4 rounded-2xl border border-emerald-200 shadow-xs text-center">
+              <div className="text-[9px] sm:text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Active SHIFT-IN</div>
+              <div className="text-xl sm:text-2xl font-black text-emerald-800 mt-0.5 sm:mt-1">{activeInCount}</div>
             </div>
-            <div className="bg-rose-50 p-4 rounded-2xl border border-rose-200 shadow-xs text-center">
-              <div className="text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Completed OUT</div>
-              <div className="text-2xl font-black text-rose-800 mt-1">{finishedOutCount}</div>
+            <div className="bg-rose-50 p-3 sm:p-4 rounded-2xl border border-rose-200 shadow-xs text-center">
+              <div className="text-[9px] sm:text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Completed OUT</div>
+              <div className="text-xl sm:text-2xl font-black text-rose-800 mt-0.5 sm:mt-1">{finishedOutCount}</div>
             </div>
           </div>
 
       {/* Filters & Export Toolbar */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-3 print:hidden">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
         <div>
           <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
             Filter Date / Month
@@ -925,42 +925,42 @@ export default function AdminPage() {
       </div>
 
       {/* Action Buttons Bar */}
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 print:hidden">
         <button
           onClick={fetchDashboardData}
-          className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-xl border border-slate-300 transition-all flex items-center gap-1.5"
+          className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-xl border border-slate-300 transition-all flex items-center justify-center gap-1.5"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh Data</span>
+          <span>Refresh</span>
         </button>
 
         <button
           onClick={handleDownloadCSV}
-          className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+          className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
         >
           <FileSpreadsheet className="w-3.5 h-3.5" />
-          <span>Download CSV</span>
+          <span>CSV Export</span>
         </button>
 
         <button
           onClick={handleDownloadFormattedPDF}
-          className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+          className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>Official Formatted PDF</span>
+          <span>Formatted PDF</span>
         </button>
 
         <button
           onClick={handleDownloadSelfiePDF}
-          className="py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+          className="py-2.5 px-3 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
         >
           <Camera className="w-3.5 h-3.5" />
-          <span>PDF with Selfie Proofs</span>
+          <span>Selfie Proofs PDF</span>
         </button>
 
         <button
           onClick={handleDownloadLiveSelfiePDF}
-          className="py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+          className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
         >
           <Camera className="w-3.5 h-3.5" />
           <span>Live Selfie PDF</span>
@@ -968,14 +968,14 @@ export default function AdminPage() {
 
         <button
           onClick={() => setShowBatchSelfieModal(true)}
-          className="py-2.5 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+          className="col-span-2 sm:col-span-1 py-2.5 px-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
         >
           <FileArchive className="w-3.5 h-3.5" />
-          <span>Download Selfies (1-Click ZIP)</span>
+          <span>Download Selfies ZIP</span>
         </button>
       </div>
 
-      {/* Main Table Content */}
+      {/* Main Table & Mobile Card Content */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-400 font-semibold animate-pulse">
@@ -987,61 +987,117 @@ export default function AdminPage() {
               No live attendance logs found for this filter selection.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-extrabold text-[10px]">
-                    <th className="p-3.5">Timestamp</th>
-                    <th className="p-3.5">Employee</th>
-                    <th className="p-3.5">Branch</th>
-                    <th className="p-3.5">Punch Type</th>
-                    <th className="p-3.5">Distance</th>
-                    <th className="p-3.5 text-center">Selfie Proof</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                  {filteredLiveLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="p-3.5 font-mono text-slate-900 font-bold">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      </td>
-                      <td className="p-3.5">
-                        <div className="font-extrabold text-slate-900">{log.emp_name}</div>
-                        <div className="text-[10px] text-slate-400">ID: {log.emp_id}</div>
-                      </td>
-                      <td className="p-3.5">{log.branch_name}</td>
-                      <td className="p-3.5">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            log.type === 'IN'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : log.type === 'OUT'
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          SHIFT-{log.type}
-                        </span>
-                      </td>
-                      <td className="p-3.5">{log.distance_m || 0}m</td>
-                      <td className="p-3.5 text-center">
-                        {log.photo_url ? (
-                          <a href={log.photo_url} target="_blank" rel="noreferrer" className="inline-block">
-                            <img
-                              src={log.photo_url}
-                              alt="Selfie"
-                              className="w-20 h-20 object-cover rounded-2xl border-2 border-slate-300 shadow-xs hover:scale-110 transition-transform"
-                            />
-                          </a>
-                        ) : (
-                          <span className="text-slate-300 italic">No Photo</span>
-                        )}
-                      </td>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-extrabold text-[10px]">
+                      <th className="p-3.5">Timestamp</th>
+                      <th className="p-3.5">Employee</th>
+                      <th className="p-3.5">Branch</th>
+                      <th className="p-3.5">Punch Type</th>
+                      <th className="p-3.5">Distance</th>
+                      <th className="p-3.5 text-center">Selfie Proof</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {filteredLiveLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3.5 font-mono text-slate-900 font-bold">
+                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-extrabold text-slate-900">{log.emp_name}</div>
+                          <div className="text-[10px] text-slate-400">ID: {log.emp_id}</div>
+                        </td>
+                        <td className="p-3.5">{log.branch_name}</td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              log.type === 'IN'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : log.type === 'OUT'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            SHIFT-{log.type}
+                          </span>
+                        </td>
+                        <td className="p-3.5">{log.distance_m || 0}m</td>
+                        <td className="p-3.5 text-center">
+                          {log.photo_url ? (
+                            <a href={log.photo_url} target="_blank" rel="noreferrer" className="inline-block">
+                              <img
+                                src={log.photo_url}
+                                alt="Selfie"
+                                className="w-16 h-16 object-cover rounded-2xl border-2 border-slate-300 shadow-xs hover:scale-105 transition-transform"
+                              />
+                            </a>
+                          ) : (
+                            <span className="text-slate-300 italic">No Photo</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="block md:hidden divide-y divide-slate-100">
+                {filteredLiveLogs.map((log) => (
+                  <div key={log.id} className="p-4 space-y-3 bg-white">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                          log.type === 'IN'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : log.type === 'OUT'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        SHIFT-{log.type}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-slate-500">
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-black text-slate-900 text-sm">{log.emp_name}</div>
+                        <div className="text-xs text-slate-500 font-semibold">
+                          ID: {log.emp_id} • {log.branch_name}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
+                        {log.distance_m || 0}m GPS
+                      </div>
+                    </div>
+
+                    {log.photo_url ? (
+                      <a href={log.photo_url} target="_blank" rel="noreferrer" className="block relative">
+                        <img
+                          src={log.photo_url}
+                          alt="Selfie Proof"
+                          className="w-full h-44 object-cover rounded-xl border border-slate-300"
+                        />
+                        <span className="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          Tap to view full
+                        </span>
+                      </a>
+                    ) : (
+                      <div className="w-full h-24 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
+                        No Selfie Captured
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )
         ) : activeTab === 'summary' ? (
           filteredSummaryRows.length === 0 ? (
@@ -1049,164 +1105,290 @@ export default function AdminPage() {
               No daily summary rows calculated for this date.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-extrabold text-[10px]">
+                      <th className="p-3.5">Employee</th>
+                      <th className="p-3.5">Branch</th>
+                      <th className="p-3.5">Shift Punches (Sets 1–5)</th>
+                      <th className="p-3.5">Selfie Proofs (Sets 1–5)</th>
+                      <th className="p-3.5">Total Hrs</th>
+                      <th className="p-3.5">OT</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-center">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {filteredSummaryRows.map((r) => {
+                      const activeSets = [
+                        { num: 1, inTime: r.in1, outTime: r.out1, inPhoto: r.in1Photo, outPhoto: r.out1Photo },
+                        { num: 2, inTime: r.in2, outTime: r.out2, inPhoto: r.in2Photo, outPhoto: r.out2Photo },
+                        { num: 3, inTime: r.in3, outTime: r.out3, inPhoto: r.in3Photo, outPhoto: r.out3Photo },
+                        { num: 4, inTime: r.in4, outTime: r.out4, inPhoto: r.in4Photo, outPhoto: r.out4Photo },
+                        { num: 5, inTime: r.in5, outTime: r.out5, inPhoto: r.in5Photo, outPhoto: r.out5Photo },
+                      ].filter((s) => s.inTime || s.outTime || s.inPhoto || s.outPhoto);
+
+                      return (
+                        <tr key={r.empId} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5">
+                            <div className="font-extrabold text-slate-900">{r.name}</div>
+                            <div className="text-[10px] text-slate-400">ID: {r.empId}</div>
+                          </td>
+                          <td className="p-3.5">{r.branch}</td>
+                          <td className="p-3.5 font-mono">
+                            {activeSets.length === 0 ? (
+                              <span className="text-slate-400 font-sans italic text-[11px]">- / -</span>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {activeSets.map((s) => (
+                                  <div key={s.num} className="flex items-center gap-1.5 text-[11px]">
+                                    <span className="text-[9px] font-extrabold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                      Set {s.num}
+                                    </span>
+                                    <span className="text-emerald-700 font-bold">{s.inTime || '--:--'}</span>
+                                    <span className="text-slate-300">/</span>
+                                    <span className="text-rose-700 font-bold">{s.outTime || '--:--'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3.5">
+                            {activeSets.length === 0 ? (
+                              <span className="text-slate-300 italic text-[10px]">None</span>
+                            ) : (
+                              <div className="space-y-2">
+                                {activeSets.map((s) => (
+                                  <div key={s.num} className="flex items-center gap-2">
+                                    <span className="text-[9px] font-bold text-slate-400 w-9">Set {s.num}:</span>
+                                    <div className="flex items-center gap-2.5">
+                                      {s.inPhoto ? (
+                                        <a href={s.inPhoto} target="_blank" rel="noreferrer" className="group relative">
+                                          <img
+                                            src={s.inPhoto}
+                                            alt={`Set ${s.num} IN`}
+                                            className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-400 shadow-2xs group-hover:scale-105 transition-transform"
+                                            title={`Set ${s.num} IN Selfie (${s.inTime || 'N/A'})`}
+                                          />
+                                          <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                                            IN
+                                          </span>
+                                        </a>
+                                      ) : s.inTime ? (
+                                        <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
+                                          No IN Photo
+                                        </span>
+                                      ) : null}
+
+                                      {s.outPhoto ? (
+                                        <a href={s.outPhoto} target="_blank" rel="noreferrer" className="group relative">
+                                          <img
+                                            src={s.outPhoto}
+                                            alt={`Set ${s.num} OUT`}
+                                            className="w-16 h-16 rounded-xl object-cover border-2 border-rose-400 shadow-2xs group-hover:scale-105 transition-transform"
+                                            title={`Set ${s.num} OUT Selfie (${s.outTime || 'N/A'})`}
+                                          />
+                                          <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                                            OUT
+                                          </span>
+                                        </a>
+                                      ) : s.outTime ? (
+                                        <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
+                                          No OUT Photo
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3.5 font-bold text-indigo-700">{r.totalHours}h</td>
+                          <td className="p-3.5 font-bold text-amber-700">{r.ot}h</td>
+                          <td className="p-3.5">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                                r.status === 'Present'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : r.status === 'Missing OUT'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {r.status}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              onClick={() => handleOpenDetailModal(r)}
+                              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px]"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View Proofs</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View for Daily Summary */}
+              <div className="block md:hidden divide-y divide-slate-100">
+                {filteredSummaryRows.map((r) => {
+                  const activeSets = [
+                    { num: 1, inTime: r.in1, outTime: r.out1, inPhoto: r.in1Photo, outPhoto: r.out1Photo },
+                    { num: 2, inTime: r.in2, outTime: r.out2, inPhoto: r.in2Photo, outPhoto: r.out2Photo },
+                    { num: 3, inTime: r.in3, outTime: r.out3, inPhoto: r.in3Photo, outPhoto: r.out3Photo },
+                    { num: 4, inTime: r.in4, outTime: r.out4, inPhoto: r.in4Photo, outPhoto: r.out4Photo },
+                    { num: 5, inTime: r.in5, outTime: r.out5, inPhoto: r.in5Photo, outPhoto: r.out5Photo },
+                  ].filter((s) => s.inTime || s.outTime || s.inPhoto || s.outPhoto);
+
+                  return (
+                    <div key={r.empId} className="p-4 space-y-3 bg-white">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-extrabold text-slate-900 text-sm">{r.name}</div>
+                          <div className="text-xs text-slate-500 font-semibold">
+                            ID: {r.empId} • {r.branch}
+                          </div>
+                        </div>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            r.status === 'Present'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : r.status === 'Missing OUT'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {r.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center font-bold">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block uppercase">Total Hours</span>
+                          <span className="text-indigo-700">{r.totalHours}h</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block uppercase">Overtime (OT)</span>
+                          <span className="text-amber-700">{r.ot}h</span>
+                        </div>
+                      </div>
+
+                      {/* Sets list */}
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-bold text-slate-600">Shift Punch Sets:</div>
+                        {activeSets.length === 0 ? (
+                          <div className="text-xs text-slate-400 italic">No punches today</div>
+                        ) : (
+                          activeSets.map((s) => (
+                            <div key={s.num} className="p-2 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-black text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded text-[10px]">
+                                  Set {s.num}
+                                </span>
+                                <div className="font-mono text-xs">
+                                  <span className="text-emerald-700 font-bold">{s.inTime || '--:--'}</span>
+                                  <span className="text-slate-300 mx-1">/</span>
+                                  <span className="text-rose-700 font-bold">{s.outTime || '--:--'}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {s.inPhoto && (
+                                  <a href={s.inPhoto} target="_blank" rel="noreferrer" className="relative">
+                                    <img src={s.inPhoto} alt="Set IN" className="w-16 h-16 rounded-lg object-cover border-2 border-emerald-400" />
+                                    <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[8px] font-black px-1 rounded">IN</span>
+                                  </a>
+                                )}
+                                {s.outPhoto && (
+                                  <a href={s.outPhoto} target="_blank" rel="noreferrer" className="relative">
+                                    <img src={s.outPhoto} alt="Set OUT" className="w-16 h-16 rounded-lg object-cover border-2 border-rose-400" />
+                                    <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[8px] font-black px-1 rounded">OUT</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => handleOpenDetailModal(r)}
+                        className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>View All Proofs & Timestamps</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )
+        ) : (
+          <>
+            {/* Desktop Table View for Monthly */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-extrabold text-[10px]">
                     <th className="p-3.5">Employee</th>
                     <th className="p-3.5">Branch</th>
-                    <th className="p-3.5">Shift Punches (Sets 1–5)</th>
-                    <th className="p-3.5">Selfie Proofs (Sets 1–5)</th>
-                    <th className="p-3.5">Total Hrs</th>
-                    <th className="p-3.5">OT</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5 text-center">Details</th>
+                    <th className="p-3.5">Present Days</th>
+                    <th className="p-3.5">Absent Days</th>
+                    <th className="p-3.5">Total Hours</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                  {filteredSummaryRows.map((r) => {
-                    const activeSets = [
-                      { num: 1, inTime: r.in1, outTime: r.out1, inPhoto: r.in1Photo, outPhoto: r.out1Photo },
-                      { num: 2, inTime: r.in2, outTime: r.out2, inPhoto: r.in2Photo, outPhoto: r.out2Photo },
-                      { num: 3, inTime: r.in3, outTime: r.out3, inPhoto: r.in3Photo, outPhoto: r.out3Photo },
-                      { num: 4, inTime: r.in4, outTime: r.out4, inPhoto: r.in4Photo, outPhoto: r.out4Photo },
-                      { num: 5, inTime: r.in5, outTime: r.out5, inPhoto: r.in5Photo, outPhoto: r.out5Photo },
-                    ].filter((s) => s.inTime || s.outTime || s.inPhoto || s.outPhoto);
-
-                    return (
-                      <tr key={r.empId} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="p-3.5">
-                          <div className="font-extrabold text-slate-900">{r.name}</div>
-                          <div className="text-[10px] text-slate-400">ID: {r.empId}</div>
-                        </td>
-                        <td className="p-3.5">{r.branch}</td>
-                        <td className="p-3.5 font-mono">
-                          {activeSets.length === 0 ? (
-                            <span className="text-slate-400 font-sans italic text-[11px]">- / -</span>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {activeSets.map((s) => (
-                                <div key={s.num} className="flex items-center gap-1.5 text-[11px]">
-                                  <span className="text-[9px] font-extrabold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                    Set {s.num}
-                                  </span>
-                                  <span className="text-emerald-700 font-bold">{s.inTime || '--:--'}</span>
-                                  <span className="text-slate-300">/</span>
-                                  <span className="text-rose-700 font-bold">{s.outTime || '--:--'}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-3.5">
-                          {activeSets.length === 0 ? (
-                            <span className="text-slate-300 italic text-[10px]">None</span>
-                          ) : (
-                            <div className="space-y-2">
-                              {activeSets.map((s) => (
-                                <div key={s.num} className="flex items-center gap-2">
-                                  <span className="text-[9px] font-bold text-slate-400 w-9">Set {s.num}:</span>
-                                  <div className="flex items-center gap-2.5">
-                                    {s.inPhoto ? (
-                                      <a href={s.inPhoto} target="_blank" rel="noreferrer" className="group relative">
-                                        <img
-                                          src={s.inPhoto}
-                                          alt={`Set ${s.num} IN`}
-                                          className="w-18 h-18 rounded-xl object-cover border-2 border-emerald-400 shadow-2xs group-hover:scale-105 transition-transform"
-                                          title={`Set ${s.num} IN Selfie (${s.inTime || 'N/A'})`}
-                                        />
-                                        <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                                          IN
-                                        </span>
-                                      </a>
-                                    ) : s.inTime ? (
-                                      <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
-                                        No IN Photo
-                                      </span>
-                                    ) : null}
-
-                                    {s.outPhoto ? (
-                                      <a href={s.outPhoto} target="_blank" rel="noreferrer" className="group relative">
-                                        <img
-                                          src={s.outPhoto}
-                                          alt={`Set ${s.num} OUT`}
-                                          className="w-18 h-18 rounded-xl object-cover border-2 border-rose-400 shadow-2xs group-hover:scale-105 transition-transform"
-                                          title={`Set ${s.num} OUT Selfie (${s.outTime || 'N/A'})`}
-                                        />
-                                        <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                                          OUT
-                                        </span>
-                                      </a>
-                                    ) : s.outTime ? (
-                                      <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
-                                        No OUT Photo
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-3.5 font-bold text-indigo-700">{r.totalHours}h</td>
-                        <td className="p-3.5 font-bold text-amber-700">{r.ot}h</td>
-                        <td className="p-3.5">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                              r.status === 'Present'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : r.status === 'Missing OUT'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
-                          >
-                            {r.status}
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-center">
-                          <button
-                            onClick={() => handleOpenDetailModal(r)}
-                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px]"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>View Proofs</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {filteredMonthlyRows.map((m) => (
+                    <tr key={m.empId} className="hover:bg-slate-50/70">
+                      <td className="p-3.5">
+                        <div className="font-extrabold text-slate-900">{m.name}</div>
+                        <div className="text-[10px] text-slate-400">ID: {m.empId}</div>
+                      </td>
+                      <td className="p-3.5">{m.branch}</td>
+                      <td className="p-3.5 font-bold text-emerald-700">{m.presentDays} days</td>
+                      <td className="p-3.5 font-bold text-rose-700">{m.absentDays} days</td>
+                      <td className="p-3.5 font-bold text-indigo-700">{m.totalHours}h</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          )
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-extrabold text-[10px]">
-                  <th className="p-3.5">Employee</th>
-                  <th className="p-3.5">Branch</th>
-                  <th className="p-3.5">Present Days</th>
-                  <th className="p-3.5">Absent Days</th>
-                  <th className="p-3.5">Total Hours</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {filteredMonthlyRows.map((m) => (
-                  <tr key={m.empId} className="hover:bg-slate-50/70">
-                    <td className="p-3.5">
-                      <div className="font-extrabold text-slate-900">{m.name}</div>
-                      <div className="text-[10px] text-slate-400">ID: {m.empId}</div>
-                    </td>
-                    <td className="p-3.5">{m.branch}</td>
-                    <td className="p-3.5 font-bold text-emerald-700">{m.presentDays} days</td>
-                    <td className="p-3.5 font-bold text-rose-700">{m.absentDays} days</td>
-                    <td className="p-3.5 font-bold text-indigo-700">{m.totalHours}h</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+            {/* Mobile Card View for Monthly */}
+            <div className="block md:hidden divide-y divide-slate-100">
+              {filteredMonthlyRows.map((m) => (
+                <div key={m.empId} className="p-4 space-y-2 bg-white">
+                  <div className="font-black text-slate-900 text-sm">{m.name}</div>
+                  <div className="text-xs text-slate-500 font-semibold">
+                    ID: {m.empId} • {m.branch}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-center font-bold text-xs">
+                    <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                      <span className="text-[9px] text-emerald-600 block uppercase">Present</span>
+                      <span className="text-emerald-800">{m.presentDays}d</span>
+                    </div>
+                    <div className="bg-rose-50 p-2 rounded-lg border border-rose-200">
+                      <span className="text-[9px] text-rose-600 block uppercase">Absent</span>
+                      <span className="text-rose-800">{m.absentDays}d</span>
+                    </div>
+                    <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-200">
+                      <span className="text-[9px] text-indigo-600 block uppercase">Total Hrs</span>
+                      <span className="text-indigo-800">{m.totalHours}h</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </>
