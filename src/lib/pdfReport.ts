@@ -8,6 +8,23 @@ async function toDataURL(url: string): Promise<string> {
   const trimmed = url.trim();
   if (trimmed.startsWith('data:image/')) return trimmed;
 
+  try {
+    const res = await fetch('/api/proxy-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: trimmed }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.dataUrl && json.dataUrl.startsWith('data:image/')) {
+        return json.dataUrl;
+      }
+    }
+  } catch (err) {
+    console.warn('Proxy image fetch error:', err);
+  }
+
+  // Fallback to client-side Image canvas conversion
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -22,22 +39,10 @@ async function toDataURL(url: string): Promise<string> {
           resolve(canvas.toDataURL('image/jpeg', 0.9));
           return;
         }
-      } catch (e) {
-        console.warn('Canvas conversion failed:', e);
-      }
-      resolve(trimmed);
+      } catch (e) {}
+      resolve('');
     };
-    img.onerror = () => {
-      fetch(trimmed, { mode: 'cors' })
-        .then((r) => r.blob())
-        .then((blob) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve((reader.result as string) || trimmed);
-          reader.onerror = () => resolve(trimmed);
-          reader.readAsDataURL(blob);
-        })
-        .catch(() => resolve(trimmed));
-    };
+    img.onerror = () => resolve('');
     img.src = trimmed;
   });
 }

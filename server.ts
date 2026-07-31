@@ -154,6 +154,65 @@ app.post('/api/upload-selfie', async (req, res) => {
   }
 });
 
+// API Route: Proxy image conversion to Base64 data URL (handles Google Drive URLs and CORS images)
+app.post('/api/proxy-image', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.status(400).json({ error: 'url string is required' });
+    }
+
+    const trimmed = url.trim();
+    if (trimmed.startsWith('data:image/')) {
+      return res.json({ dataUrl: trimmed });
+    }
+
+    // Check if it's a Google Drive URL or File ID
+    const driveMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+    const fileId = driveMatch ? driveMatch[1] : null;
+
+    if (fileId) {
+      try {
+        const drive = getDriveClient(req);
+        const driveRes = await drive.files.get(
+          { fileId: fileId, alt: 'media' },
+          { responseType: 'arraybuffer' }
+        );
+        const buffer = Buffer.from(driveRes.data as ArrayBuffer);
+        const mimeType = driveRes.headers['content-type'] || 'image/jpeg';
+        const base64 = buffer.toString('base64');
+        return res.json({ dataUrl: `data:${mimeType};base64,${base64}` });
+      } catch (driveErr: any) {
+        console.warn('Drive API media fetch error, trying thumbnail link fallback:', driveErr?.message);
+        const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+        const thumbRes = await fetch(thumbUrl);
+        if (thumbRes.ok) {
+          const arrBuf = await thumbRes.arrayBuffer();
+          const buffer = Buffer.from(arrBuf);
+          const mimeType = thumbRes.headers.get('content-type') || 'image/jpeg';
+          const base64 = buffer.toString('base64');
+          return res.json({ dataUrl: `data:${mimeType};base64,${base64}` });
+        }
+      }
+    }
+
+    // Standard HTTP image fetch fallback
+    const fetchRes = await fetch(trimmed);
+    if (fetchRes.ok) {
+      const arrBuf = await fetchRes.arrayBuffer();
+      const buffer = Buffer.from(arrBuf);
+      const mimeType = fetchRes.headers.get('content-type') || 'image/jpeg';
+      const base64 = buffer.toString('base64');
+      return res.json({ dataUrl: `data:${mimeType};base64,${base64}` });
+    }
+
+    return res.json({ dataUrl: '' });
+  } catch (err: any) {
+    console.error('Proxy image error:', err);
+    return res.json({ dataUrl: '' });
+  }
+});
+
 async function startServer() {
   // Vite middleware for dev or static serving for prod
   if (process.env.NODE_ENV !== 'production') {
