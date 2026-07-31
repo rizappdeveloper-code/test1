@@ -1030,7 +1030,7 @@ export default function AdminPage() {
                             <img
                               src={log.photo_url}
                               alt="Selfie"
-                              className="w-10 h-10 object-cover rounded-xl border border-slate-300 shadow-xs hover:scale-110 transition-transform"
+                              className="w-20 h-20 object-cover rounded-2xl border-2 border-slate-300 shadow-xs hover:scale-110 transition-transform"
                             />
                           </a>
                         ) : (
@@ -1106,16 +1106,16 @@ export default function AdminPage() {
                               {activeSets.map((s) => (
                                 <div key={s.num} className="flex items-center gap-2">
                                   <span className="text-[9px] font-bold text-slate-400 w-9">Set {s.num}:</span>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2.5">
                                     {s.inPhoto ? (
                                       <a href={s.inPhoto} target="_blank" rel="noreferrer" className="group relative">
                                         <img
                                           src={s.inPhoto}
                                           alt={`Set ${s.num} IN`}
-                                          className="w-9 h-9 rounded-lg object-cover border-2 border-emerald-400 shadow-2xs group-hover:scale-110 transition-transform"
+                                          className="w-18 h-18 rounded-xl object-cover border-2 border-emerald-400 shadow-2xs group-hover:scale-105 transition-transform"
                                           title={`Set ${s.num} IN Selfie (${s.inTime || 'N/A'})`}
                                         />
-                                        <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[8px] font-black px-1 rounded shadow-xs">
+                                        <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
                                           IN
                                         </span>
                                       </a>
@@ -1130,10 +1130,10 @@ export default function AdminPage() {
                                         <img
                                           src={s.outPhoto}
                                           alt={`Set ${s.num} OUT`}
-                                          className="w-9 h-9 rounded-lg object-cover border-2 border-rose-400 shadow-2xs group-hover:scale-110 transition-transform"
+                                          className="w-18 h-18 rounded-xl object-cover border-2 border-rose-400 shadow-2xs group-hover:scale-105 transition-transform"
                                           title={`Set ${s.num} OUT Selfie (${s.outTime || 'N/A'})`}
                                         />
-                                        <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[8px] font-black px-1 rounded shadow-xs">
+                                        <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
                                           OUT
                                         </span>
                                       </a>
@@ -1257,11 +1257,11 @@ export default function AdminPage() {
                           <img
                             src={log.photo_url}
                             alt="Selfie Proof"
-                            className="w-full h-28 object-cover rounded-lg border border-slate-300 hover:opacity-90 transition-opacity"
+                            className="w-full h-52 object-cover rounded-xl border border-slate-300 hover:opacity-90 transition-opacity"
                           />
                         </a>
                       ) : (
-                        <div className="w-full h-28 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-xs italic">
+                        <div className="w-full h-52 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
                           No Photo Captured
                         </div>
                       )}

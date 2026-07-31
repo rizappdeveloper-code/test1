@@ -333,8 +333,8 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
       if (!time && !photoUrl) return '';
       const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
       const imgTag = validPhoto
-        ? `<img src="${validPhoto}" style="width: 65px; height: 65px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
-        : `<div style="width: 65px; height: 65px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+        ? `<img src="${validPhoto}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
+        : `<div style="width: 120px; height: 120px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
       const isIN = label.toUpperCase().includes('IN');
       const typeColor = isIN ? '#059669' : '#dc2626';
@@ -444,8 +444,8 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
 
     const photoUrl = l.photoUrlBase64 || l.photo_url || '';
     const imgTag = photoUrl && photoUrl.trim() !== ''
-      ? `<img src="${photoUrl}" style="width: 75px; height: 75px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
-      : `<div style="width: 75px; height: 75px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+      ? `<img src="${photoUrl}" style="width: 140px; height: 140px; object-fit: cover; border-radius: 10px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
+      : `<div style="width: 140px; height: 140px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
     const selfieBlock = `
       <div style="text-align: center; padding: 2px;">
