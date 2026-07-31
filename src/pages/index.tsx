@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Branch, Employee, AttendanceLog } from '../types';
 import { getHaversineDistance, detectPhotoSource } from '../lib/attendance';
+import { formatISTTime } from '../lib/dateUtils';
 import { 
   Camera, 
   MapPin, 
@@ -155,7 +156,7 @@ export default function IndexPage() {
       if (data && data.length > 0) {
         const latest = data[0];
         setLastStatus(latest.type as 'IN' | 'OUT');
-        setLastPunchTime(new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        setLastPunchTime(formatISTTime(latest.timestamp));
         if (latest.type === 'IN') {
           setPunchType('OUT');
         } else {

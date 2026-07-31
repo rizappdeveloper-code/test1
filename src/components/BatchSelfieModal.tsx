@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Branch, Employee } from '../types';
 import { downloadSelfiesZip } from '../lib/selfieDownloader';
+import { getTodayISTDateString, getCurrentISTMonthString, formatISTDate } from '../lib/dateUtils';
 import { 
   X, 
   Download, 
@@ -32,7 +33,7 @@ export default function BatchSelfieModal({
   initialStartDate,
   initialEndDate,
 }: BatchSelfieModalProps) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayISTDateString();
   const [startDate, setStartDate] = useState<string>(initialStartDate || today);
   const [endDate, setEndDate] = useState<string>(initialEndDate || today);
   const [selectedBranch, setSelectedBranch] = useState<string>('');
@@ -126,7 +127,7 @@ export default function BatchSelfieModal({
                 onClick={() => {
                   const d = new Date();
                   d.setDate(d.getDate() - 7);
-                  setStartDate(d.toISOString().split('T')[0]);
+                  setStartDate(formatISTDate(d));
                   setEndDate(today);
                 }}
                 className="py-1.5 px-3 text-xs font-bold rounded-xl border bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 transition-all"
@@ -136,10 +137,7 @@ export default function BatchSelfieModal({
               <button
                 type="button"
                 onClick={() => {
-                  const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-                    .toISOString()
-                    .split('T')[0];
-                  setStartDate(firstDay);
+                  setStartDate(`${getCurrentISTMonthString()}-01`);
                   setEndDate(today);
                 }}
                 className="py-1.5 px-3 text-xs font-bold rounded-xl border bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 transition-all"

@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { AttendanceLog } from '../types';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { getISTDateRangeISO, formatISTDate, formatISTTime24 } from './dateUtils';
 
 // Helper to convert photo URL (Base64 or external/relative URL) into Blob / ArrayBuffer
 async function fetchImageBlob(url: string): Promise<{ data: ArrayBuffer; extension: string } | null> {
@@ -54,14 +55,14 @@ export async function downloadSelfiesZip(options: BatchDownloadOptions): Promise
 
   if (onProgress) onProgress(0, 0, 'Fetching attendance logs...');
 
-  const startIso = `${startDate}T00:00:00.000Z`;
-  const endIso = `${endDate}T23:59:59.999Z`;
+  const { startISO } = getISTDateRangeISO(startDate);
+  const { endISO } = getISTDateRangeISO(endDate);
 
   let query = supabase
     .from('attendance_logs')
     .select('*')
-    .gte('timestamp', startIso)
-    .lte('timestamp', endIso)
+    .gte('timestamp', startISO)
+    .lte('timestamp', endISO)
     .order('timestamp', { ascending: true });
 
   if (branchName) query = query.eq('branch_name', branchName);
@@ -96,9 +97,9 @@ export async function downloadSelfiesZip(options: BatchDownloadOptions): Promise
 
     const imgResult = await fetchImageBlob(log.photo_url);
     if (imgResult) {
-      const dateStr = log.timestamp ? log.timestamp.split('T')[0] : startDate;
+      const dateStr = log.timestamp ? formatISTDate(log.timestamp) : startDate;
       const timeStr = log.timestamp
-        ? new Date(log.timestamp).toTimeString().split(' ')[0].replace(/:/g, '-')
+        ? formatISTTime24(log.timestamp).replace(/:/g, '-')
         : '00-00-00';
       const cleanEmpName = (log.emp_name || 'EMP').replace(/[^a-zA-Z0-9_-]/g, '_');
       const cleanBranch = (log.branch_name || 'BRANCH').replace(/[^a-zA-Z0-9_-]/g, '_');

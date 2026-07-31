@@ -6,6 +6,14 @@ import autoTable from 'jspdf-autotable';
 import { generateFormattedPDF, generateSelfiePDF, generateLiveSelfiePDF } from '../lib/pdfReport';
 import BatchSelfieModal from '../components/BatchSelfieModal';
 import SuperAdminCrud from '../components/SuperAdminCrud';
+import {
+  getTodayISTDateString,
+  getCurrentISTMonthString,
+  formatISTTime,
+  formatISTDate,
+  formatISTDateTime,
+  getISTDateRangeISO,
+} from '../lib/dateUtils';
 import { 
   ShieldCheck, 
   Lock, 
@@ -49,8 +57,8 @@ export default function AdminPage() {
   const [superAdminAuthError, setSuperAdminAuthError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'live' | 'summary' | 'monthly' | 'crud'>('live');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().substring(0, 7));
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayISTDateString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentISTMonthString());
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedEmpFilter, setSelectedEmpFilter] = useState<string>('');
@@ -249,9 +257,8 @@ export default function AdminPage() {
           .order('timestamp', { ascending: false });
 
         if (selectedDate) {
-          const start = `${selectedDate}T00:00:00.000Z`;
-          const end = `${selectedDate}T23:59:59.999Z`;
-          query = query.gte('timestamp', start).lte('timestamp', end);
+          const { startISO, endISO } = getISTDateRangeISO(selectedDate);
+          query = query.gte('timestamp', startISO).lte('timestamp', endISO);
         }
 
         if (selectedBranch) {
@@ -269,9 +276,8 @@ export default function AdminPage() {
           .order('timestamp', { ascending: true });
 
         if (selectedDate) {
-          const start = `${selectedDate}T00:00:00.000Z`;
-          const end = `${selectedDate}T23:59:59.999Z`;
-          query = query.gte('timestamp', start).lte('timestamp', end);
+          const { startISO, endISO } = getISTDateRangeISO(selectedDate);
+          query = query.gte('timestamp', startISO).lte('timestamp', endISO);
         }
 
         const { data: logs } = await query;
@@ -313,16 +319,16 @@ export default function AdminPage() {
             empId: emp.id,
             name: emp.name,
             branch: emp.branch_name,
-            in1: inPunches[0] ? new Date(inPunches[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            out1: outPunches[0] ? new Date(outPunches[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            in2: inPunches[1] ? new Date(inPunches[1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            out2: outPunches[1] ? new Date(outPunches[1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            in3: inPunches[2] ? new Date(inPunches[2].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            out3: outPunches[2] ? new Date(outPunches[2].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            in4: inPunches[3] ? new Date(inPunches[3].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            out4: outPunches[3] ? new Date(outPunches[3].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            in5: inPunches[4] ? new Date(inPunches[4].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            out5: outPunches[4] ? new Date(outPunches[4].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+            in1: inPunches[0] ? formatISTTime(inPunches[0].timestamp) : '',
+            out1: outPunches[0] ? formatISTTime(outPunches[0].timestamp) : '',
+            in2: inPunches[1] ? formatISTTime(inPunches[1].timestamp) : '',
+            out2: outPunches[1] ? formatISTTime(outPunches[1].timestamp) : '',
+            in3: inPunches[2] ? formatISTTime(inPunches[2].timestamp) : '',
+            out3: outPunches[2] ? formatISTTime(outPunches[2].timestamp) : '',
+            in4: inPunches[3] ? formatISTTime(inPunches[3].timestamp) : '',
+            out4: outPunches[3] ? formatISTTime(outPunches[3].timestamp) : '',
+            in5: inPunches[4] ? formatISTTime(inPunches[4].timestamp) : '',
+            out5: outPunches[4] ? formatISTTime(outPunches[4].timestamp) : '',
             in1Photo: inPunches[0]?.photo_url || '',
             out1Photo: outPunches[0]?.photo_url || '',
             in2Photo: inPunches[1]?.photo_url || '',
@@ -350,13 +356,13 @@ export default function AdminPage() {
         const monthlyMap: { [key: string]: { name: string; branch: string; days: Set<string>; hours: number; missing: number } } = {};
 
         (monthLogs || []).forEach((l) => {
-          const logDate = l.timestamp.substring(0, 7);
+          const logDate = formatISTDate(l.timestamp).substring(0, 7);
           if (selectedMonth && logDate !== selectedMonth) return;
 
           if (!monthlyMap[l.emp_id]) {
             monthlyMap[l.emp_id] = { name: l.emp_name, branch: l.branch_name, days: new Set(), hours: 0, missing: 0 };
           }
-          const dayStr = l.timestamp.substring(0, 10);
+          const dayStr = formatISTDate(l.timestamp);
           monthlyMap[l.emp_id].days.add(dayStr);
         });
 
@@ -428,15 +434,14 @@ export default function AdminPage() {
   const handleOpenDetailModal = async (row: DailySummaryRow) => {
     setSelectedDetailRow(row);
     try {
-      const start = `${selectedDate}T00:00:00.000Z`;
-      const end = `${selectedDate}T23:59:59.999Z`;
+      const { startISO, endISO } = getISTDateRangeISO(selectedDate);
 
       const { data } = await supabase
         .from('attendance_logs')
         .select('*')
         .eq('emp_id', row.empId)
-        .gte('timestamp', start)
-        .lte('timestamp', end)
+        .gte('timestamp', startISO)
+        .lte('timestamp', endISO)
         .order('timestamp', { ascending: true });
 
       setDetailLogs(data || []);
@@ -451,7 +456,7 @@ export default function AdminPage() {
     if (activeTab === 'live') {
       csv = 'Date,Time,Employee ID,Name,Branch,Type,Distance(m),Photo URL\n';
       filteredLiveLogs.forEach((row) => {
-        csv += `${row.timestamp.substring(0, 10)},${new Date(row.timestamp).toLocaleTimeString()},${row.emp_id},"${row.emp_name}","${row.branch_name}",${row.type},${row.distance_m || 0},"${row.photo_url || ''}"\n`;
+        csv += `${formatISTDate(row.timestamp)},${formatISTTime(row.timestamp, true)},${row.emp_id},"${row.emp_name}","${row.branch_name}",${row.type},${row.distance_m || 0},"${row.photo_url || ''}"\n`;
       });
     } else if (activeTab === 'summary') {
       csv = 'Date,EmpID,Name,Branch,IN1,OUT1,IN2,OUT2,IN3,OUT3,TotalHours,OT,Status\n';
@@ -479,11 +484,11 @@ export default function AdminPage() {
     doc.setFontSize(16);
     doc.text(`AQSA ATTENDANCE REPORT (${activeTab.toUpperCase()})`, 14, 15);
     doc.setFontSize(10);
-    doc.text(`Date: ${selectedDate} | Generated: ${new Date().toLocaleString()}`, 14, 22);
+    doc.text(`Date: ${selectedDate} | Generated: ${formatISTDateTime(new Date())}`, 14, 22);
 
     if (activeTab === 'live') {
       const tableData = filteredLiveLogs.map((l) => [
-        new Date(l.timestamp).toLocaleTimeString(),
+        formatISTTime(l.timestamp, true),
         l.emp_id,
         l.emp_name,
         l.branch_name,
@@ -492,7 +497,7 @@ export default function AdminPage() {
       ]);
       autoTable(doc, {
         startY: 28,
-        head: [['Time', 'Emp ID', 'Name', 'Branch', 'Type', 'Distance']],
+        head: [['Time (IST)', 'Emp ID', 'Name', 'Branch', 'Type', 'Distance']],
         body: tableData,
       });
     } else if (activeTab === 'summary') {
@@ -534,15 +539,14 @@ export default function AdminPage() {
     if (summaryRows.length > 0 && activeTab === 'summary') {
       return filteredSummaryRows;
     }
-    const start = `${selectedDate}T00:00:00.000Z`;
-    const end = `${selectedDate}T23:59:59.999Z`;
+    const { startISO, endISO } = getISTDateRangeISO(selectedDate);
 
     let query = supabase
       .from('attendance_logs')
       .select('*')
       .neq('type', 'REJECTED')
-      .gte('timestamp', start)
-      .lte('timestamp', end)
+      .gte('timestamp', startISO)
+      .lte('timestamp', endISO)
       .order('timestamp', { ascending: true });
 
     if (selectedBranch) {
@@ -587,16 +591,16 @@ export default function AdminPage() {
           empId: emp.id,
           name: emp.name,
           branch: emp.branch_name,
-          in1: inPunches[0] ? new Date(inPunches[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          out1: outPunches[0] ? new Date(outPunches[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          in2: inPunches[1] ? new Date(inPunches[1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          out2: outPunches[1] ? new Date(outPunches[1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          in3: inPunches[2] ? new Date(inPunches[2].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          out3: outPunches[2] ? new Date(outPunches[2].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          in4: inPunches[3] ? new Date(inPunches[3].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          out4: outPunches[3] ? new Date(outPunches[3].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          in5: inPunches[4] ? new Date(inPunches[4].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-          out5: outPunches[4] ? new Date(outPunches[4].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          in1: inPunches[0] ? formatISTTime(inPunches[0].timestamp) : '',
+          out1: outPunches[0] ? formatISTTime(outPunches[0].timestamp) : '',
+          in2: inPunches[1] ? formatISTTime(inPunches[1].timestamp) : '',
+          out2: outPunches[1] ? formatISTTime(outPunches[1].timestamp) : '',
+          in3: inPunches[2] ? formatISTTime(inPunches[2].timestamp) : '',
+          out3: outPunches[2] ? formatISTTime(outPunches[2].timestamp) : '',
+          in4: inPunches[3] ? formatISTTime(inPunches[3].timestamp) : '',
+          out4: outPunches[3] ? formatISTTime(outPunches[3].timestamp) : '',
+          in5: inPunches[4] ? formatISTTime(inPunches[4].timestamp) : '',
+          out5: outPunches[4] ? formatISTTime(outPunches[4].timestamp) : '',
           in1Photo: inPunches[0]?.photo_url || '',
           out1Photo: outPunches[0]?.photo_url || '',
           in2Photo: inPunches[1]?.photo_url || '',
@@ -619,14 +623,13 @@ export default function AdminPage() {
     if (liveLogs.length > 0 && activeTab === 'live') {
       return filteredLiveLogs;
     }
-    const start = `${selectedDate}T00:00:00.000Z`;
-    const end = `${selectedDate}T23:59:59.999Z`;
+    const { startISO, endISO } = getISTDateRangeISO(selectedDate);
 
     let query = supabase
       .from('attendance_logs')
       .select('*')
-      .gte('timestamp', start)
-      .lte('timestamp', end)
+      .gte('timestamp', startISO)
+      .lte('timestamp', endISO)
       .order('timestamp', { ascending: false });
 
     if (selectedBranch) {
@@ -1005,7 +1008,7 @@ export default function AdminPage() {
                     {filteredLiveLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="p-3.5 font-mono text-slate-900 font-bold">
-                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          {formatISTTime(log.timestamp, true)}
                         </td>
                         <td className="p-3.5">
                           <div className="font-extrabold text-slate-900">{log.emp_name}</div>
@@ -1062,7 +1065,7 @@ export default function AdminPage() {
                         SHIFT-{log.type}
                       </span>
                       <span className="text-xs font-mono font-bold text-slate-500">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatISTTime(log.timestamp)}
                       </span>
                     </div>
 
@@ -1453,7 +1456,7 @@ export default function AdminPage() {
                           SHIFT-{log.type}
                         </span>
                         <span className="text-[10px] font-mono text-slate-500 font-bold">
-                          {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatISTTime(log.timestamp, true)}
                         </span>
                       </div>
 
