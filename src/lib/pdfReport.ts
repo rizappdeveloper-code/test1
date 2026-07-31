@@ -264,14 +264,17 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
     const makePunchBox = (label: string, time: string, photoUrl: string) => {
       if (!time && !photoUrl) return '';
       const imgTag = photoUrl
-        ? `<img src="${photoUrl}" style="width: 65px; height: 65px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />`
-        : `<div style="width: 65px; height: 65px; background: #e2e8f0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: bold;">No Photo</div>`;
+        ? `<img src="${photoUrl}" style="width: 65px; height: 65px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
+        : `<div style="width: 65px; height: 65px; background: #e2e8f0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+
+      const isIN = label.includes('IN');
+      const typeColor = isIN ? '#059669' : '#dc2626';
 
       return `
-        <div style="text-align: center; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; background: #ffffff; min-width: 75px; display: inline-block; margin: 2px;">
-          <span style="font-size: 9px; font-weight: 800; display: block; color: #475569; margin-bottom: 2px;">${label}</span>
+        <div style="text-align: center; border: 1px solid #cbd5e1; border-radius: 8px; padding: 5px; background: #ffffff; min-width: 80px; display: inline-block; margin: 2px; vertical-align: top;">
           ${imgTag}
-          <span style="font-size: 9px; font-weight: 700; display: block; color: #1e3a8a; margin-top: 2px;">${time || '--:--'}</span>
+          <div style="font-size: 10px; font-weight: 800; color: ${typeColor}; margin-top: 4px;">Type: ${label}</div>
+          <div style="font-size: 9.5px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${time || '--:--'}</div>
         </div>
       `;
     };
@@ -362,9 +365,19 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
     const typeColor = l.type === 'IN' ? '#059669' : '#dc2626';
     const typeBg = l.type === 'IN' ? '#ecfdf5' : '#fef2f2';
 
+    const punchTimeStr = new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
     const imgTag = l.photoUrlBase64
-      ? `<img src="${l.photoUrlBase64}" style="width: 75px; height: 75px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: inline-block;" />`
-      : `<div style="width: 75px; height: 75px; background: #e2e8f0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: bold;">No Photo</div>`;
+      ? `<img src="${l.photoUrlBase64}" style="width: 75px; height: 75px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;" />`
+      : `<div style="width: 75px; height: 75px; background: #e2e8f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; border: 1px solid #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+
+    const selfieBlock = `
+      <div style="text-align: center; padding: 2px;">
+        ${imgTag}
+        <div style="font-size: 10px; font-weight: 800; color: ${typeColor}; margin-top: 4px;">Type: ${l.type}</div>
+        <div style="font-size: 9.5px; font-weight: 700; color: #1e3a8a; margin-top: 1px;">${punchTimeStr}</div>
+      </div>
+    `;
 
     html += `
       <tr style="background-color: ${bgColor}; font-size: 11px; color: #1e293b;">
@@ -374,7 +387,7 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
         </td>
         <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${l.branch_name}</td>
         <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; line-height: 1.4;">
-          <div><b>Punch Time:</b> ${new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+          <div><b>Punch Time:</b> ${punchTimeStr}</div>
           <div style="font-size: 10px; color: #64748b;">Distance: ${l.distance_m || 0}m</div>
         </td>
         <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">
@@ -382,7 +395,7 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
             SHIFT-${l.type}
           </span>
         </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${imgTag}</td>
+        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${selfieBlock}</td>
       </tr>
     `;
   });
