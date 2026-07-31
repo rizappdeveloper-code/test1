@@ -59,7 +59,7 @@ export default function AdminPage() {
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
 
   // Google Drive Integration State
-  const [driveFolderUrl, setDriveFolderUrl] = useState<string>('https://drive.google.com/drive/search?q=AQSA%20Attendance%20Selfies');
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string>('https://drive.google.com/drive/folders/1Ql8Xl-uyjQ_v5ibU2fzy8bCsMYk37XWw');
   const [driveUserEmail, setDriveUserEmail] = useState<string | null>(null);
 
   useEffect(() => {

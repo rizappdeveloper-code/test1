@@ -29,29 +29,8 @@ function getDriveClient(req: express.Request) {
   return google.drive({ version: 'v3', auth });
 }
 
-// Find or create "AQSA Attendance Selfies" folder in Google Drive
-async function getOrCreateSelfiesFolder(drive: ReturnType<typeof google.drive>) {
-  const res = await drive.files.list({
-    q: "name = 'AQSA Attendance Selfies' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-    fields: 'files(id, name, webViewLink)',
-    spaces: 'drive',
-  });
-
-  if (res.data.files && res.data.files.length > 0) {
-    return { id: res.data.files[0].id!, link: res.data.files[0].webViewLink };
-  }
-
-  // Create folder
-  const folderMetadata = {
-    name: 'AQSA Attendance Selfies',
-    mimeType: 'application/vnd.google-apps.folder',
-  };
-  const folder = await drive.files.create({
-    requestBody: folderMetadata,
-    fields: 'id, webViewLink',
-  });
-  return { id: folder.data.id!, link: folder.data.webViewLink };
-}
+const SPECIFIC_FOLDER_ID = '1Ql8Xl-uyjQ_v5ibU2fzy8bCsMYk37XWw';
+const SPECIFIC_FOLDER_URL = `https://drive.google.com/drive/folders/${SPECIFIC_FOLDER_ID}`;
 
 // API Route: Check Drive Integration Status & Get Folder Link
 app.get('/api/drive-status', async (req, res) => {
@@ -59,34 +38,19 @@ app.get('/api/drive-status', async (req, res) => {
     const drive = getDriveClient(req);
     const about = await drive.about.get({ fields: 'user' });
     
-    let folderId = null;
-    let folderUrl = null;
-    let errorDetails = null;
-
-    try {
-      const folderObj = await getOrCreateSelfiesFolder(drive);
-      if (folderObj && folderObj.id) {
-        folderId = folderObj.id;
-        folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
-      }
-    } catch (e: any) {
-      console.error('Folder creation/finding error:', e);
-      errorDetails = e?.message || String(e);
-    }
-
     res.json({
       connected: true,
       user: about.data.user,
-      folderId,
-      folderUrl,
-      errorDetails,
+      folderId: SPECIFIC_FOLDER_ID,
+      folderUrl: SPECIFIC_FOLDER_URL,
       folderName: 'AQSA Attendance Selfies',
     });
   } catch (err: any) {
     console.error('Drive status error:', err);
     res.json({
       connected: false,
-      folderUrl: null,
+      folderId: SPECIFIC_FOLDER_ID,
+      folderUrl: SPECIFIC_FOLDER_URL,
       error: err.message || 'Google Drive not connected',
     });
   }
@@ -96,18 +60,10 @@ app.get('/api/drive-status', async (req, res) => {
 app.get('/api/drive-folder', async (req, res) => {
   try {
     const drive = getDriveClient(req);
-    const folderObj = await getOrCreateSelfiesFolder(drive);
-    const folderId = folderObj?.id;
-    
-    if (!folderId) {
-      return res.status(404).json({ error: 'Folder not found' });
-    }
-
-    const folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
 
     // List recent files in folder
     const filesList = await drive.files.list({
-      q: `'${folderId}' in parents and trashed = false`,
+      q: `'${SPECIFIC_FOLDER_ID}' in parents and trashed = false`,
       fields: 'files(id, name, webViewLink, createdTime)',
       pageSize: 20,
       orderBy: 'createdTime desc',
@@ -115,8 +71,8 @@ app.get('/api/drive-folder', async (req, res) => {
 
     res.json({
       success: true,
-      folderId,
-      folderUrl,
+      folderId: SPECIFIC_FOLDER_ID,
+      folderUrl: SPECIFIC_FOLDER_URL,
       folderName: 'AQSA Attendance Selfies',
       files: filesList.data.files || [],
     });
@@ -141,25 +97,14 @@ app.post('/api/upload-selfie', async (req, res) => {
     const buffer = Buffer.from(base64Data, 'base64');
     const stream = Readable.from(buffer);
 
-    let folderId = null;
-    try {
-      const folderObj = await getOrCreateSelfiesFolder(drive);
-      folderId = folderObj?.id;
-    } catch (fErr) {
-      console.warn('Folder get/create failed, uploading to root:', fErr);
-    }
-
     const actualFileName = fileName || `${empId || 'EMP'}_${Date.now()}.jpg`;
 
     const fileMetadata: any = {
       name: actualFileName,
       mimeType: 'image/jpeg',
       description: `Attendance selfie proof for ${empName || 'Employee'} (${empId || 'N/A'}) captured on ${new Date().toISOString()}`,
+      parents: [SPECIFIC_FOLDER_ID],
     };
-
-    if (folderId) {
-      fileMetadata.parents = [folderId];
-    }
 
     const media = {
       mimeType: 'image/jpeg',
