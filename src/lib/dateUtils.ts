@@ -1,5 +1,24 @@
 export const INDIA_TIMEZONE = 'Asia/Kolkata';
 
+export function getISTISOString(date: Date | string | number = new Date()): string {
+  const d = new Date(date);
+  if (isNaN(d.getTime())) {
+    return getISTISOString(new Date());
+  }
+
+  // Calculate IST date values by shifting UTC by +5.5 hours
+  const istTime = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  const year = istTime.getUTCFullYear();
+  const month = String(istTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(istTime.getUTCDate()).padStart(2, '0');
+  const hours = String(istTime.getUTCHours()).padStart(2, '0');
+  const minutes = String(istTime.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(istTime.getUTCSeconds()).padStart(2, '0');
+  const millis = String(istTime.getUTCMilliseconds()).padStart(3, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${millis}+05:30`;
+}
+
 /**
  * Returns today's date in IST as 'YYYY-MM-DD'
  */

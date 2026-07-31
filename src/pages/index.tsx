@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Branch, Employee, AttendanceLog } from '../types';
 import { getHaversineDistance, detectPhotoSource } from '../lib/attendance';
-import { formatISTTime } from '../lib/dateUtils';
+import { formatISTTime, getISTISOString } from '../lib/dateUtils';
 import { 
   Camera, 
   MapPin, 
@@ -289,7 +289,7 @@ export default function IndexPage() {
               emp_name: employeeInfo.name,
               branch_name: selectedBranch,
               type: 'REJECTED',
-              timestamp: new Date().toISOString(),
+              timestamp: getISTISOString(),
               lat: coords.lat,
               lng: coords.lng,
               distance_m: Math.round(calcDist),
@@ -343,7 +343,7 @@ export default function IndexPage() {
           emp_name: employeeInfo.name,
           branch_name: selectedBranch,
           type: punchType,
-          timestamp: new Date().toISOString(),
+          timestamp: getISTISOString(),
           lat: coords.lat,
           lng: coords.lng,
           distance_m: Math.round(calcDist),

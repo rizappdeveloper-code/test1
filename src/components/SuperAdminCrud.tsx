@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getISTISOString } from '../lib/dateUtils';
 import {
   Database,
   Plus,
@@ -270,7 +271,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
       } else if (col === 'radius') {
         initial[col] = 100;
       } else if (col === 'timestamp' || col === 'created_at') {
-        initial[col] = new Date().toISOString();
+        initial[col] = getISTISOString();
       } else {
         initial[col] = '';
       }
