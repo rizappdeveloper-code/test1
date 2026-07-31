@@ -37,6 +37,44 @@ const PRESET_TABLES = [
   { id: 'admin_users', label: 'Admin Users', icon: ShieldCheck, desc: 'Admin login credentials & roles' },
 ];
 
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+const isUUIDString = (val: any): boolean => {
+  if (typeof val !== 'string') return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val.trim());
+};
+
+const generateNewIdForRecord = (rec: any, indexOffset: number = 0): any => {
+  if (!rec || rec.id === undefined || rec.id === null) {
+    return generateUUID();
+  }
+
+  const existingId = rec.id;
+
+  if (isUUIDString(existingId)) {
+    return generateUUID();
+  }
+
+  if (typeof existingId === 'number') {
+    return Date.now() + indexOffset * 17 + Math.floor(Math.random() * 1000);
+  }
+
+  if (typeof existingId === 'string' && /^\d+$/.test(existingId.trim())) {
+    return String(Date.now() + indexOffset * 17 + Math.floor(Math.random() * 1000));
+  }
+
+  return generateUUID();
+};
+
 export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
   const [selectedTable, setSelectedTable] = useState<string>('employees');
   const [customTableName, setCustomTableName] = useState<string>('');
@@ -423,14 +461,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
 
     try {
       const copy = { ...rec };
-      const nonce = Date.now() + Math.floor(Math.random() * 1000);
-
-      // Generate a new unique ID depending on whether original ID was number or string
-      if (typeof rec.id === 'number' || (typeof rec.id === 'string' && /^\d+$/.test(rec.id))) {
-        copy.id = Number(nonce);
-      } else {
-        copy.id = `COPY_${nonce}`;
-      }
+      copy.id = generateNewIdForRecord(rec);
 
       if ('created_at' in copy) {
         copy.created_at = new Date().toISOString();
@@ -460,14 +491,7 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
       const selectedRows = records.filter((r) => selectedIds.has(String(r.id)));
       const copiesToInsert = selectedRows.map((rec, i) => {
         const copy = { ...rec };
-        const nonce = Date.now() + i * 17 + Math.floor(Math.random() * 1000);
-
-        if (typeof rec.id === 'number' || (typeof rec.id === 'string' && /^\d+$/.test(rec.id))) {
-          copy.id = Number(nonce);
-        } else {
-          copy.id = `COPY_${nonce}`;
-        }
-
+        copy.id = generateNewIdForRecord(rec, i);
         if ('created_at' in copy) copy.created_at = new Date().toISOString();
         return copy;
       });
@@ -566,6 +590,8 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
     setErrorMsg(null);
 
     try {
+      const sampleRecord = records.length > 0 ? records[0] : null;
+
       // Clean rows before insertion
       const cleanedRows = parsedPasteRows.map((r, i) => {
         const clean: Record<string, any> = {};
@@ -575,10 +601,11 @@ export default function SuperAdminCrud({ branches = [] }: SuperAdminCrudProps) {
           }
         });
 
-        // Ensure ID if missing
+        // Ensure ID if missing or if non-UUID ID was provided for a UUID table
         if (!clean.id) {
-          const nonce = Date.now() + i * 13 + Math.floor(Math.random() * 1000);
-          clean.id = `ID_${nonce}`;
+          clean.id = generateNewIdForRecord(sampleRecord, i);
+        } else if (sampleRecord && isUUIDString(sampleRecord.id) && !isUUIDString(clean.id)) {
+          clean.id = generateUUID();
         }
 
         return clean;
