@@ -4,6 +4,7 @@ import { AttendanceLog, Branch, DailySummaryRow, MonthlySummaryRow, Employee } f
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateFormattedPDF, generateSelfiePDF, generateLiveSelfiePDF } from '../lib/pdfReport';
+import BatchSelfieModal from '../components/BatchSelfieModal';
 import { 
   ShieldCheck, 
   Lock, 
@@ -29,7 +30,8 @@ import {
   XCircle,
   HelpCircle,
   Folder,
-  ExternalLink
+  ExternalLink,
+  FileArchive
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -57,6 +59,9 @@ export default function AdminPage() {
 
   // QR Generator Modal State
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
+
+  // Batch Selfie Download Modal State
+  const [showBatchSelfieModal, setShowBatchSelfieModal] = useState<boolean>(false);
 
   // Google Drive Integration State
   const [driveFolderUrl, setDriveFolderUrl] = useState<string>('https://drive.google.com/drive/folders/1Ql8Xl-uyjQ_v5ibU2fzy8bCsMYk37XWw');
@@ -909,6 +914,14 @@ export default function AdminPage() {
           <Camera className="w-3.5 h-3.5" />
           <span>Live Selfie PDF</span>
         </button>
+
+        <button
+          onClick={() => setShowBatchSelfieModal(true)}
+          className="py-2.5 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+        >
+          <FileArchive className="w-3.5 h-3.5" />
+          <span>Download Selfies (1-Click ZIP)</span>
+        </button>
       </div>
 
       {/* Main Table Content */}
@@ -1213,6 +1226,16 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Batch Selfie Download Modal */}
+      <BatchSelfieModal
+        isOpen={showBatchSelfieModal}
+        onClose={() => setShowBatchSelfieModal(false)}
+        branches={branches}
+        employees={allEmployees}
+        initialStartDate={selectedDate}
+        initialEndDate={selectedDate}
+      />
     </div>
   );
 }
