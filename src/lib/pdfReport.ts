@@ -7,7 +7,7 @@ import { formatISTDateTime, formatISTTime } from './dateUtils';
 async function toDataURL(url: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
-  if (trimmed.startsWith('data:image/')) return trimmed;
+  if (trimmed.startsWith('data:')) return trimmed;
   if (trimmed.startsWith('/9j/')) return `data:image/jpeg;base64,${trimmed}`;
   if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
   if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
@@ -346,18 +346,22 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
       if (!time && !photoUrl) return '';
       const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
       const imgTag = validPhoto
-        ? `<img src="${validPhoto}" style="width: 140px; height: 140px; max-width: 140px; max-height: 140px; object-fit: cover; border-radius: 8px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
-        : `<div style="width: 140px; height: 140px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+        ? `<img src="${validPhoto}" width="130" height="130" style="width: 130px; height: 130px; border-radius: 6px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
+        : `<div style="width: 130px; height: 130px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
       const isIN = label.toUpperCase().includes('IN');
       const typeColor = isIN ? '#059669' : '#dc2626';
 
       return `
-        <div style="width: 154px; text-align: center; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; background: #ffffff; display: inline-block; margin: 4px; vertical-align: top; box-sizing: border-box;">
-          ${imgTag}
-          <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px;">Type: ${label}</div>
-          <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${time || '--:--'}</div>
-        </div>
+        <table style="display: inline-table; width: 144px; margin: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; vertical-align: top; border-collapse: separate; border-spacing: 0; box-sizing: border-box; text-align: center;">
+          <tr>
+            <td style="padding: 6px; text-align: center;">
+              ${imgTag}
+              <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px; text-align: center;">Type: ${label}</div>
+              <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px; text-align: center;">${time || '--:--'}</div>
+            </td>
+          </tr>
+        </table>
       `;
     };
 
@@ -457,8 +461,8 @@ export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: stri
 
     const photoUrl = l.photoUrlBase64 || l.photo_url || '';
     const imgTag = photoUrl && photoUrl.trim() !== ''
-      ? `<img src="${photoUrl}" style="width: 200px; height: 200px; object-fit: cover; border-radius: 12px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
-      : `<div style="width: 200px; height: 200px; background: #f8fafc; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+      ? `<img src="${photoUrl}" width="160" height="160" style="width: 160px; height: 160px; border-radius: 10px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
+      : `<div style="width: 160px; height: 160px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
     const selfieBlock = `
       <div style="text-align: center; padding: 2px;">
