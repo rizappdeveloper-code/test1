@@ -1166,37 +1166,37 @@ export default function AdminPage() {
                                     <span className="text-[9px] font-bold text-slate-400 w-9">Set {s.num}:</span>
                                     <div className="flex items-center gap-2.5">
                                       {s.inPhoto ? (
-                                        <a href={s.inPhoto} target="_blank" rel="noreferrer" className="group relative">
+                                        <a href={s.inPhoto} target="_blank" rel="noreferrer" className="group relative block">
                                           <img
                                             src={s.inPhoto}
                                             alt={`Set ${s.num} IN`}
-                                            className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-400 shadow-2xs group-hover:scale-105 transition-transform"
+                                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl object-cover border-2 border-emerald-400 shadow-xs group-hover:scale-105 transition-transform"
                                             title={`Set ${s.num} IN Selfie (${s.inTime || 'N/A'})`}
                                           />
-                                          <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                                          <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs">
                                             IN
                                           </span>
                                         </a>
                                       ) : s.inTime ? (
-                                        <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
+                                        <span className="text-[9px] text-slate-400 italic bg-slate-50 px-2 py-1 rounded border border-slate-200">
                                           No IN Photo
                                         </span>
                                       ) : null}
 
                                       {s.outPhoto ? (
-                                        <a href={s.outPhoto} target="_blank" rel="noreferrer" className="group relative">
+                                        <a href={s.outPhoto} target="_blank" rel="noreferrer" className="group relative block">
                                           <img
                                             src={s.outPhoto}
                                             alt={`Set ${s.num} OUT`}
-                                            className="w-16 h-16 rounded-xl object-cover border-2 border-rose-400 shadow-2xs group-hover:scale-105 transition-transform"
+                                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl object-cover border-2 border-rose-400 shadow-xs group-hover:scale-105 transition-transform"
                                             title={`Set ${s.num} OUT Selfie (${s.outTime || 'N/A'})`}
                                           />
-                                          <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                                          <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-xs">
                                             OUT
                                           </span>
                                         </a>
                                       ) : s.outTime ? (
-                                        <span className="text-[9px] text-slate-400 italic bg-slate-50 px-1.5 py-1 rounded border border-slate-200">
+                                        <span className="text-[9px] text-slate-400 italic bg-slate-50 px-2 py-1 rounded border border-slate-200">
                                           No OUT Photo
                                         </span>
                                       ) : null}
@@ -1300,19 +1300,42 @@ export default function AdminPage() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2">
-                                {s.inPhoto && (
-                                  <a href={s.inPhoto} target="_blank" rel="noreferrer" className="relative">
-                                    <img src={s.inPhoto} alt="Set IN" className="w-16 h-16 rounded-lg object-cover border-2 border-emerald-400" />
-                                    <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white text-[8px] font-black px-1 rounded">IN</span>
+                              <div className="grid grid-cols-2 gap-2 pt-1">
+                                {s.inPhoto ? (
+                                  <a href={s.inPhoto} target="_blank" rel="noreferrer" className="relative block group">
+                                    <img
+                                      src={s.inPhoto}
+                                      alt="Set IN"
+                                      className="w-full h-40 sm:h-48 rounded-xl object-cover border-2 border-emerald-400 shadow-xs group-hover:scale-105 transition-transform"
+                                    />
+                                    <div className="absolute bottom-1.5 left-1.5 right-1.5 bg-emerald-950/80 text-white text-[9px] font-black px-2 py-1 rounded-lg backdrop-blur-xs flex items-center justify-between">
+                                      <span>IN</span>
+                                      <span className="font-mono">{s.inTime || '--:--'}</span>
+                                    </div>
                                   </a>
-                                )}
-                                {s.outPhoto && (
-                                  <a href={s.outPhoto} target="_blank" rel="noreferrer" className="relative">
-                                    <img src={s.outPhoto} alt="Set OUT" className="w-16 h-16 rounded-lg object-cover border-2 border-rose-400" />
-                                    <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white text-[8px] font-black px-1 rounded">OUT</span>
+                                ) : s.inTime ? (
+                                  <div className="w-full h-24 bg-slate-100 rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 italic">
+                                    No IN Selfie
+                                  </div>
+                                ) : null}
+
+                                {s.outPhoto ? (
+                                  <a href={s.outPhoto} target="_blank" rel="noreferrer" className="relative block group">
+                                    <img
+                                      src={s.outPhoto}
+                                      alt="Set OUT"
+                                      className="w-full h-40 sm:h-48 rounded-xl object-cover border-2 border-rose-400 shadow-xs group-hover:scale-105 transition-transform"
+                                    />
+                                    <div className="absolute bottom-1.5 left-1.5 right-1.5 bg-rose-950/80 text-white text-[9px] font-black px-2 py-1 rounded-lg backdrop-blur-xs flex items-center justify-between">
+                                      <span>OUT</span>
+                                      <span className="font-mono">{s.outTime || '--:--'}</span>
+                                    </div>
                                   </a>
-                                )}
+                                ) : s.outTime ? (
+                                  <div className="w-full h-24 bg-slate-100 rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 italic">
+                                    No OUT Selfie
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           ))
@@ -1418,7 +1441,7 @@ export default function AdminPage() {
               {detailLogs.length === 0 ? (
                 <div className="text-xs text-slate-400 italic">No individual punch logs recorded for today.</div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {detailLogs.map((log) => (
                     <div key={log.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
                       <div className="flex items-center justify-between">
@@ -1435,15 +1458,18 @@ export default function AdminPage() {
                       </div>
 
                       {log.photo_url ? (
-                        <a href={log.photo_url} target="_blank" rel="noreferrer" className="block">
+                        <a href={log.photo_url} target="_blank" rel="noreferrer" className="block relative group">
                           <img
                             src={log.photo_url}
                             alt="Selfie Proof"
-                            className="w-full h-52 object-cover rounded-xl border border-slate-300 hover:opacity-90 transition-opacity"
+                            className="w-full h-64 sm:h-72 object-cover rounded-xl border border-slate-300 hover:opacity-90 transition-opacity"
                           />
+                          <span className="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                            Full Size ↗
+                          </span>
                         </a>
                       ) : (
-                        <div className="w-full h-52 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
+                        <div className="w-full h-64 sm:h-72 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
                           No Photo Captured
                         </div>
                       )}
