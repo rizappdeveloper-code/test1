@@ -3,18 +3,18 @@ import html2canvas from 'html2canvas';
 import { AttendanceLog, DailySummaryRow } from '../types';
 import { formatISTDateTime, formatISTTime } from './dateUtils';
 
+// --- IMAGE PROCESSING HELPERS ---
+
 /**
- * HELPER: Converts any image URL into a "Data URL" (Base64).
- * This is the most reliable way to ensure html2canvas "sees" the image.
+ * Converts a URL to a Base64 string. 
+ * This is crucial because html2canvas often fails to "see" external URLs.
  */
 async function toDataURL(url: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
-  
-  // If it's already a data URL, return it
   if (trimmed.startsWith('data:')) return trimmed;
 
-  // Try fetching through the proxy first
+  // Try fetching via proxy
   try {
     const res = await fetch('/api/proxy-image', {
       method: 'POST',
@@ -23,15 +23,13 @@ async function toDataURL(url: string): Promise<string> {
     });
     if (res.ok) {
       const json = await res.json();
-      if (json.dataUrl && json.dataUrl.startsWith('data:')) {
-        return json.dataUrl;
-      }
+      if (json.dataUrl) return json.dataUrl;
     }
   } catch (err) {
-    console.warn('Proxy error:', err);
+    console.warn('Proxy fetch failed, trying direct conversion');
   }
 
-  // Fallback: Try client-side conversion
+  // Fallback: Direct canvas conversion
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -42,7 +40,7 @@ async function toDataURL(url: string): Promise<string> {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       } else {
         resolve('');
       }
@@ -53,223 +51,212 @@ async function toDataURL(url: string): Promise<string> {
 }
 
 async function preparePhoto(url?: string): Promise<string> {
-  if (!url) return '';
-  return await toDataURL(url);
+  return await toDataURL(url || '');
 }
 
-/**
- * CORE: Renders the HTML into a Canvas and then a PDF.
- * Increased wait times to ensure many photos can load.
- */
+// --- PDF RENDERING ENGINE ---
+
 async function renderHtmlToCanvas(htmlContent: string, widthPx: number): Promise<HTMLCanvasElement> {
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-9999px';
-    iframe.style.top = '0';
-    iframe.style.width = `${widthPx}px`;
-    iframe.style.height = '2000px'; 
-    iframe.style.visibility = 'hidden';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      document.body.removeChild(iframe);
-      return reject(new Error('Iframe Error'));
-    }
-
-    doc.open();
-    doc.write(`
-      <html>
-        <head>
-          <style>
-            * { box-sizing: border-box; font-family: sans-serif; }
-            body { margin: 0; padding: 20px; background: white; width: ${widthPx}px; }
-            img { display: block; object-fit: cover; background: #f0f0f0; }
-            .punch-box { 
-              display: inline-block; 
-              width: 120px; 
-              margin: 4px; 
-              padding: 5px; 
-              border: 1px solid #ddd; 
-              border-radius: 4px; 
-              text-align: center; 
-              vertical-align: top;
-              background: white;
-            }
-          </style>
-        </head>
-        <body>${htmlContent}</body>
-      </html>
-    `);
-    doc.close();
-
-    // IMPORTANT: Wait for all images to decode
-    setTimeout(async () => {
-      try {
-        const images = Array.from(doc.images);
-        await Promise.all(images.map(img => {
-          if (img.complete) return Promise.resolve();
-          return new Promise(r => { img.onload = r; img.onerror = r; });
-        }));
-
-        // Give extra 2 seconds for the browser to actually paint the images
-        await new Promise(r => setTimeout(r, 2000));
-
-        const canvas = await html2canvas(doc.body, {
-          scale: 1.5, // Slightly lower scale to save memory for big reports
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#ffffff',
-          logging: false,
-          width: widthPx,
-          height: doc.body.scrollHeight,
-        });
-
-        document.body.removeChild(iframe);
-        resolve(canvas);
-      } catch (err) {
-        document.body.removeChild(iframe);
-        reject(err);
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = `${widthPx}px`;
+  container.style.background = 'white';
+  container.innerHTML = `
+    <style>
+      .pdf-root { font-family: Arial, sans-serif; padding: 20px; color: #1e293b; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #1e293b; color: white; padding: 10px; font-size: 12px; border: 1px solid #334155; }
+      td { border: 1px solid #e2e8f0; padding: 8px; font-size: 11px; vertical-align: top; }
+      .punch-card { 
+        display: inline-block; 
+        width: 130px; 
+        border: 1px solid #cbd5e1; 
+        border-radius: 6px; 
+        margin: 4px; 
+        padding: 5px; 
+        text-align: center; 
+        background: #ffffff;
       }
-    }, 1000); // Initial load wait
+      .punch-img { width: 120px; height: 120px; border-radius: 4px; object-fit: cover; display: block; margin: 0 auto; background: #f1f5f9; }
+      .label-in { color: #059669; font-weight: 800; font-size: 10px; margin-top: 4px; }
+      .label-out { color: #dc2626; font-weight: 800; font-size: 10px; margin-top: 4px; }
+      .time-text { font-weight: 700; font-size: 10px; color: #1e3a8a; }
+    </style>
+    <div class="pdf-root">${htmlContent}</div>
+  `;
+  document.body.appendChild(container);
+
+  // FORCE IMAGE DECODING: This tells the browser "do not continue until these pixels are visible"
+  const images = Array.from(container.getElementsByTagName('img'));
+  await Promise.all(images.map(async (img) => {
+    try {
+      if (img.src) {
+        await img.decode(); 
+      }
+    } catch (e) {
+      console.error("Image decode failed", e);
+    }
+  }));
+
+  // Wait a moment for the layout to settle
+  await new Promise(r => setTimeout(r, 1500));
+
+  const canvas = await html2canvas(container, {
+    scale: 1.5,
+    useCORS: true,
+    logging: false,
+    allowTaint: false,
+    backgroundColor: '#ffffff',
   });
+
+  document.body.removeChild(container);
+  return canvas;
 }
 
 function saveCanvasToPdf(canvas: HTMLCanvasElement, filename: string) {
   const imgData = canvas.toDataURL('image/jpeg', 0.9);
   const pdf = new jsPDF('landscape', 'mm', 'a4');
   const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pdfWidth;
+  const pdfPageHeight = pdf.internal.pageSize.getHeight();
   const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
   let heightLeft = imgHeight;
   let position = 0;
 
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-  heightLeft -= pdfHeight;
+  pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+  heightLeft -= pdfPageHeight;
 
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
+    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+    heightLeft -= pdfPageHeight;
   }
   pdf.save(filename);
 }
 
-// 1. STANDARD REPORT
-export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: string) {
-  let html = `<h2 style="color: #1e3a8a;">AQSA ATTENDANCE SUMMARY - ${dateStr}</h2>
-    <table border="1" cellspacing="0" cellpadding="8" style="width: 100%; border-collapse: collapse; font-size: 11px;">
-      <tr style="background: #1e293b; color: white;">
-        <th>Employee</th><th>Branch</th><th>Intervals</th><th>Hrs</th><th>Status</th>
-      </tr>`;
-  
-  data.forEach(row => {
-    const intervals = [row.in1, row.out1, row.in2, row.out2, row.in3, row.out3].filter(Boolean).join(' / ');
-    html += `<tr>
-      <td><b>${row.name}</b><br>ID: ${row.empId}</td>
-      <td align="center">${row.branch}</td>
-      <td align="center">${intervals || '-'}</td>
-      <td align="center">${row.totalHours}h</td>
-      <td align="center">${row.status}</td>
-    </tr>`;
-  });
-  html += `</table>`;
+// --- EXPORTED FUNCTIONS ---
 
-  const canvas = await renderHtmlToCanvas(html, 1000);
-  saveCanvasToPdf(canvas, `Summary_${dateStr}.pdf`);
+// 1. Standard Summary PDF
+export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: string) {
+  let html = `
+    <h1 style="color:#1e3a8a;">AQSA ATTENDANCE SUMMARY - ${dateStr}</h1>
+    <table>
+      <thead>
+        <tr><th>Employee</th><th>Branch</th><th>Intervals (IN/OUT)</th><th>Hrs</th><th>OT</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+  `;
+  data.forEach(row => {
+    const ints = [row.in1, row.out1, row.in2, row.out2, row.in3, row.out3].filter(Boolean).join(' / ');
+    html += `
+      <tr>
+        <td><b>${row.name}</b><br>ID: ${row.empId}</td>
+        <td align="center">${row.branch}</td>
+        <td align="center">${ints || '-'}</td>
+        <td align="center"><b>${row.totalHours}h</b></td>
+        <td align="center">${row.ot}h</td>
+        <td align="center">${row.status}</td>
+      </tr>`;
+  });
+  html += `</tbody></table>`;
+  const canvas = await renderHtmlToCanvas(html, 1100);
+  saveCanvasToPdf(canvas, `AQSA_Summary_${dateStr}.pdf`);
 }
 
-// 2. SELFIE PROOFS REPORT (THE FIXED ONE)
+// 2. Selfie Proofs PDF (FIXED VERSION)
 export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
-  // Step 1: Pre-convert all images to base64 so html2canvas doesn't have to fetch them
-  const processedData = await Promise.all(data.map(async row => ({
+  // We process all photos into Base64 before starting
+  const rows = await Promise.all(data.map(async row => ({
     ...row,
-    p1: await preparePhoto(row.in1Photo),
-    p2: await preparePhoto(row.out1Photo),
-    p3: await preparePhoto(row.in2Photo),
-    p4: await preparePhoto(row.out2Photo),
-    p5: await preparePhoto(row.in3Photo),
-    p6: await preparePhoto(row.out3Photo),
+    img1: await preparePhoto(row.in1Photo), img2: await preparePhoto(row.out1Photo),
+    img3: await preparePhoto(row.in2Photo), img4: await preparePhoto(row.out2Photo),
+    img5: await preparePhoto(row.in3Photo), img6: await preparePhoto(row.out3Photo),
+    img7: await preparePhoto(row.in4Photo), img8: await preparePhoto(row.out4Photo),
+    img9: await preparePhoto(row.in5Photo), img10: await preparePhoto(row.out5Photo),
   })));
 
-  let html = `<h2 style="color: #1e3a8a;">AQSA SELFIE VERIFICATION - ${dateStr}</h2>
-    <table border="1" cellspacing="0" cellpadding="5" style="width: 100%; border-collapse: collapse; font-size: 10px;">
-      <tr style="background: #1e293b; color: white;">
-        <th width="15%">Employee</th>
-        <th width="75%">Selfie Proofs (Type & Time)</th>
-        <th width="10%">Status</th>
-      </tr>`;
+  let html = `
+    <h1 style="color:#1e3a8a; border-bottom: 3px solid #1e3a8a;">AQSA SELFIE VERIFICATION REPORT - ${dateStr}</h1>
+    <table>
+      <thead>
+        <tr><th width="15%">Employee Details</th><th width="75%">Shift Punches & Selfie Proofs</th><th width="10%">Status</th></tr>
+      </thead>
+      <tbody>
+  `;
 
-  processedData.forEach(row => {
-    const makeBox = (label: string, time: string, photo: string) => {
-      if (!time && !photo) return '';
-      // Only show image if we actually have a base64 string
-      const imgHtml = photo.length > 100 
-        ? `<img src="${photo}" width="110" height="110" />`
-        : `<div style="width:110px; height:110px; background:#f0f0f0; border:1px dashed #ccc; padding-top:45px;">No Photo</div>`;
+  rows.forEach(row => {
+    const makeBox = (label: string, time: string, base64: string) => {
+      if (!time && (!base64 || base64.length < 100)) return '';
+      const isIN = label.includes('IN');
+      const imgTag = base64.length > 100 
+        ? `<img src="${base64}" class="punch-img" />`
+        : `<div class="punch-img" style="line-height:120px; color:#94a3b8; font-size:10px; border:1px dashed #cbd5e1;">No Photo</div>`;
       
-      const labelColor = label.includes('IN') ? 'green' : 'red';
-
       return `
-        <div class="punch-box">
-          ${imgHtml}
-          <div style="color:${labelColor}; font-weight:bold; margin-top:4px;">${label}</div>
-          <div style="font-weight:bold;">${time || '--:--'}</div>
+        <div class="punch-card">
+          ${imgTag}
+          <div class="${isIN ? 'label-in' : 'label-out'}">${label}</div>
+          <div class="time-text">${time || '--:--'}</div>
         </div>
       `;
     };
 
     let boxes = '';
-    boxes += makeBox('IN 1', row.in1, row.p1);
-    boxes += makeBox('OUT 1', row.out1, row.p2);
-    if (row.in2 || row.p3) boxes += makeBox('IN 2', row.in2, row.p3);
-    if (row.out2 || row.p4) boxes += makeBox('OUT 2', row.out2, row.p4);
-    if (row.in3 || row.p5) boxes += makeBox('IN 3', row.in3, row.p5);
-    if (row.out3 || row.p6) boxes += makeBox('OUT 3', row.out3, row.p6);
+    boxes += makeBox('IN 1', row.in1, row.img1);
+    boxes += makeBox('OUT 1', row.out1, row.img2);
+    if (row.in2 || row.img3) boxes += makeBox('IN 2', row.in2, row.img3);
+    if (row.out2 || row.img4) boxes += makeBox('OUT 2', row.out2, row.img4);
+    if (row.in3 || row.img5) boxes += makeBox('IN 3', row.in3, row.img5);
+    if (row.out3 || row.img6) boxes += makeBox('OUT 3', row.out3, row.img6);
+    if (row.in4 || row.img7) boxes += makeBox('IN 4', row.in4, row.img7);
+    if (row.out4 || row.img8) boxes += makeBox('OUT 4', row.out4, row.img8);
 
-    html += `<tr>
-      <td valign="top"><b>${row.name}</b><br>ID: ${row.empId}</td>
-      <td align="center">${boxes || 'No Punches'}</td>
-      <td align="center" valign="top">${row.status}</td>
-    </tr>`;
+    html += `
+      <tr>
+        <td><b>${row.name}</b><br>ID: ${row.empId}<br>Branch: ${row.branch}</td>
+        <td align="center">${boxes || '<i style="color:#94a3b8">No activity recorded</i>'}</td>
+        <td align="center"><b>${row.status}</b><br>${row.totalHours}h</td>
+      </tr>`;
   });
 
-  html += `</table>`;
-
-  const canvas = await renderHtmlToCanvas(html, 1200);
-  saveCanvasToPdf(canvas, `Selfie_Proofs_${dateStr}.pdf`);
+  html += `</tbody></table>`;
+  // Width is 1300 to give space for all photos horizontally
+  const canvas = await renderHtmlToCanvas(html, 1300);
+  saveCanvasToPdf(canvas, `AQSA_Selfie_Verification_${dateStr}.pdf`);
 }
 
-// 3. LIVE LOGS REPORT
+// 3. Live Logs PDF
 export async function generateLiveSelfiePDF(data: AttendanceLog[], dateStr: string) {
-  const processedLogs = await Promise.all(data.map(async log => ({
-    ...log,
-    base64: await preparePhoto(log.photo_url)
+  const logs = await Promise.all(data.map(async l => ({
+    ...l,
+    base64: await preparePhoto(l.photo_url)
   })));
 
-  let html = `<h2 style="color: #1e3a8a;">AQSA LIVE LOGS - ${dateStr}</h2>
-    <table border="1" cellspacing="0" cellpadding="10" style="width: 100%; border-collapse: collapse; font-size: 11px;">
-      <tr style="background: #1e293b; color: white;">
-        <th>Employee</th><th>Type & Time</th><th>Photo Proof</th>
+  let html = `
+    <h1 style="color:#1e3a8a;">AQSA LIVE VERIFICATION LOGS - ${dateStr}</h1>
+    <table>
+      <thead>
+        <tr><th>Employee</th><th>Branch</th><th>Punch Info</th><th>Photo Proof</th></tr>
+      </thead>
+      <tbody>
+  `;
+  logs.forEach(l => {
+    const img = l.base64.length > 100 
+      ? `<img src="${l.base64}" style="width:150px; height:150px; border-radius:8px; border:1px solid #cbd5e1;" />`
+      : `<div style="width:150px; height:150px; background:#f1f5f9; border:1px dashed #cbd5e1; line-height:150px;">No Photo</div>`;
+    
+    html += `
+      <tr>
+        <td align="center"><b>${l.emp_name}</b><br>ID: ${l.emp_id}</td>
+        <td align="center">${l.branch_name}</td>
+        <td align="center"><b>${l.type}</b><br>${formatISTTime(l.timestamp, true)}</td>
+        <td align="center">${img}</td>
       </tr>`;
-
-  processedLogs.forEach(log => {
-    const imgHtml = log.base64.length > 100 
-      ? `<img src="${log.base64}" width="140" height="140" />`
-      : `<div style="width:140px; height:140px; background:#eee; padding-top:60px;">No Photo</div>`;
-
-    html += `<tr>
-      <td align="center"><b>${log.emp_name}</b><br>ID: ${log.emp_id}</td>
-      <td align="center"><b>${log.type}</b><br>${formatISTTime(log.timestamp, true)}</td>
-      <td align="center">${imgHtml}</td>
-    </tr>`;
   });
-
-  html += `</table>`;
-  const canvas = await renderHtmlToCanvas(html, 1000);
-  saveCanvasToPdf(canvas, `Live_Logs_${dateStr}.pdf`);
+  html += `</tbody></table>`;
+  const canvas = await renderHtmlToCanvas(html, 1100);
+  saveCanvasToPdf(canvas, `AQSA_Live_Logs_${dateStr}.pdf`);
 }
