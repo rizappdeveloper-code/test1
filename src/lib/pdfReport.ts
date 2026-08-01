@@ -11,53 +11,60 @@ async function toDataURL(url: string): Promise<string> {
   // If already a valid data URI
   if (trimmed.startsWith('data:')) return trimmed;
 
-  // Handle raw base64 strings (strings not starting with http/https or data:)
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
-    if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
-    if (trimmed.startsWith('UklGR')) return `data:image/webp;base64,${trimmed}`;
-    // Strip possible raw base64 prefix variations if any
-    const cleanBase64 = trimmed.startsWith('/9j/') ? trimmed : trimmed.replace(/^[^a-zA-Z0-9+/=]+/, '');
-    return `data:image/jpeg;base64,${cleanBase64}`;
+  // Resolve relative URLs (e.g., /uploads/...)
+  let fullUrl = trimmed;
+  if (trimmed.startsWith('/')) {
+    fullUrl = window.location.origin + trimmed;
   }
 
-  try {
-    const res = await fetch('/api/proxy-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: trimmed }),
-    });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.dataUrl && (json.dataUrl.startsWith('data:image/') || json.dataUrl.startsWith('data:'))) {
-        return json.dataUrl;
-      }
-    }
-  } catch (err) {
-    console.warn('Proxy image fetch error:', err);
-  }
+  const isHttpUrl = fullUrl.startsWith('http://') || fullUrl.startsWith('https://');
 
-  // Fallback to client-side Image canvas conversion
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width || 200;
-        canvas.height = img.naturalHeight || img.height || 200;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
-          return;
+  if (isHttpUrl) {
+    try {
+      const res = await fetch('/api/proxy-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: fullUrl }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.dataUrl && (json.dataUrl.startsWith('data:image/') || json.dataUrl.startsWith('data:'))) {
+          return json.dataUrl;
         }
-      } catch (e) {}
-      resolve('');
-    };
-    img.onerror = () => resolve('');
-    img.src = trimmed;
-  });
+      }
+    } catch (err) {
+      console.warn('Proxy image fetch error:', err);
+    }
+
+    // Fallback to client-side Image canvas conversion
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 200;
+          canvas.height = img.naturalHeight || img.height || 200;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+            return;
+          }
+        } catch (e) {}
+        resolve(fullUrl);
+      };
+      img.onerror = () => resolve(fullUrl);
+      img.src = fullUrl;
+    });
+  }
+
+  // Handle raw base64 strings
+  if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
+  if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
+  if (trimmed.startsWith('UklGR')) return `data:image/webp;base64,${trimmed}`;
+  const cleanBase64 = trimmed.startsWith('/9j/') ? trimmed : trimmed.replace(/^[^a-zA-Z0-9+/=]+/, '');
+  return `data:image/jpeg;base64,${cleanBase64}`;
 }
 
 // Safely prepares image URL with fallback to original string if conversion yields empty
@@ -65,13 +72,7 @@ async function preparePhoto(url?: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
   const dataUrl = await toDataURL(trimmed);
-  if (dataUrl && (dataUrl.startsWith('data:') || dataUrl.startsWith('http'))) {
-    return dataUrl;
-  }
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
-    return trimmed;
-  }
-  return `data:image/jpeg;base64,${trimmed}`;
+  return dataUrl || trimmed;
 }
 
 // Render HTML content safely inside an iframe to avoid Tailwind v4 oklch CSS conflicts
@@ -295,20 +296,20 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
 
 // 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies)
 export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
-  // Pre-convert images to base64 data URLs with fallback to original URL
+  // Pre-convert images to base64 data URLs while retaining original URLs as fallbacks
   const processRows = await Promise.all(
     data.map(async (row) => ({
       ...row,
-      in1Photo: await preparePhoto(row.in1Photo),
-      out1Photo: await preparePhoto(row.out1Photo),
-      in2Photo: await preparePhoto(row.in2Photo),
-      out2Photo: await preparePhoto(row.out2Photo),
-      in3Photo: await preparePhoto(row.in3Photo),
-      out3Photo: await preparePhoto(row.out3Photo),
-      in4Photo: await preparePhoto(row.in4Photo),
-      out4Photo: await preparePhoto(row.out4Photo),
-      in5Photo: await preparePhoto(row.in5Photo),
-      out5Photo: await preparePhoto(row.out5Photo),
+      in1PhotoB64: await preparePhoto(row.in1Photo),
+      out1PhotoB64: await preparePhoto(row.out1Photo),
+      in2PhotoB64: await preparePhoto(row.in2Photo),
+      out2PhotoB64: await preparePhoto(row.out2Photo),
+      in3PhotoB64: await preparePhoto(row.in3Photo),
+      out3PhotoB64: await preparePhoto(row.out3Photo),
+      in4PhotoB64: await preparePhoto(row.in4Photo),
+      out4PhotoB64: await preparePhoto(row.out4Photo),
+      in5PhotoB64: await preparePhoto(row.in5Photo),
+      out5PhotoB64: await preparePhoto(row.out5Photo),
     }))
   );
 
@@ -318,7 +319,7 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
         <tr>
           <td>
             <h1 style="margin: 0; color: #1e3a8a; font-size: 24px; font-weight: 800;">AQSA ATTENDANCE & VERIFICATION REPORT</h1>
-            <p style="margin: 5px 0 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase;">Daily Summary with Selfie Proofs</p>
+            <p style="margin: 5px 0 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase;">Daily Summary Log with Selfie Proofs</p>
           </td>
           <td align="right">
             <div style="background: #f1f5f9; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; width: 140px;">
@@ -335,10 +336,10 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
         <tr style="background-color: #1e293b; color: #ffffff; font-size: 12px;">
           <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 18%;">Employee Details</th>
           <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 12%;">Branch</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 50%;">Shift Punches & Selfie Proofs</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 52%;">Shift Punches & Selfie Proofs</th>
           <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">Hours</th>
           <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">OT</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 8%;">Status</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">Status</th>
         </tr>
       </thead>
       <tbody>
@@ -356,21 +357,22 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
       statusBg = '#fffbeb';
     }
 
-    const makePunchBox = (label: string, time: string, photoUrl?: string) => {
-      if (!time && !photoUrl) return '';
+    const makePunchCard = (label: string, time: string, photoB64?: string, photoOrig?: string) => {
+      if (!time && !photoB64 && !photoOrig) return '';
+      const photoUrl = photoB64 || photoOrig || '';
       const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
       const imgTag = validPhoto
-        ? `<img src="${validPhoto}" width="130" height="130" style="width: 130px; height: 130px; border-radius: 6px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
-        : `<div style="width: 130px; height: 130px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+        ? `<img src="${validPhoto}" width="150" height="150" style="width: 150px; height: 150px; object-fit: cover; border-radius: 10px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
+        : `<div style="width: 150px; height: 150px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
       const isIN = label.toUpperCase().includes('IN');
       const typeColor = isIN ? '#059669' : '#dc2626';
 
       return `
-        <div style="display: inline-block; width: 144px; margin: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; vertical-align: top; box-sizing: border-box; text-align: center; padding: 6px;">
+        <div style="display: inline-block; width: 168px; margin: 5px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; vertical-align: top; box-sizing: border-box; text-align: center; padding: 6px;">
           ${imgTag}
-          <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px; text-align: center;">Type: ${label}</div>
-          <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px; text-align: center;">${time || '--:--'}</div>
+          <div style="font-size: 11px; font-weight: 800; color: ${typeColor}; margin-top: 6px; text-align: center;">Type: ${label}</div>
+          <div style="font-size: 10.5px; font-weight: 700; color: #1e3a8a; margin-top: 2px; text-align: center;">Time: ${time || '--:--'}</div>
         </div>
       `;
     };
@@ -379,30 +381,30 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
     if (row.status === 'Absent') {
       punchesHtml = `<span style="color: #cbd5e1; font-style: italic; font-size: 11px;">Employee Absent</span>`;
     } else {
-      punchesHtml += makePunchBox('IN 1', row.in1, row.in1Photo);
-      punchesHtml += makePunchBox('OUT 1', row.out1, row.out1Photo);
-      if (row.in2 || row.in2Photo) punchesHtml += makePunchBox('IN 2', row.in2, row.in2Photo);
-      if (row.out2 || row.out2Photo) punchesHtml += makePunchBox('OUT 2', row.out2, row.out2Photo);
-      if (row.in3 || row.in3Photo) punchesHtml += makePunchBox('IN 3', row.in3, row.in3Photo);
-      if (row.out3 || row.out3Photo) punchesHtml += makePunchBox('OUT 3', row.out3, row.out3Photo);
-      if (row.in4 || row.in4Photo) punchesHtml += makePunchBox('IN 4', row.in4, row.in4Photo);
-      if (row.out4 || row.out4Photo) punchesHtml += makePunchBox('OUT 4', row.out4, row.out4Photo);
-      if (row.in5 || row.in5Photo) punchesHtml += makePunchBox('IN 5', row.in5, row.in5Photo);
-      if (row.out5 || row.out5Photo) punchesHtml += makePunchBox('OUT 5', row.out5, row.out5Photo);
+      punchesHtml += makePunchCard('IN 1', row.in1, row.in1PhotoB64, row.in1Photo);
+      punchesHtml += makePunchCard('OUT 1', row.out1, row.out1PhotoB64, row.out1Photo);
+      if (row.in2 || row.in2Photo) punchesHtml += makePunchCard('IN 2', row.in2, row.in2PhotoB64, row.in2Photo);
+      if (row.out2 || row.out2Photo) punchesHtml += makePunchCard('OUT 2', row.out2, row.out2PhotoB64, row.out2Photo);
+      if (row.in3 || row.in3Photo) punchesHtml += makePunchCard('IN 3', row.in3, row.in3PhotoB64, row.in3Photo);
+      if (row.out3 || row.out3Photo) punchesHtml += makePunchCard('OUT 3', row.out3, row.out3PhotoB64, row.out3Photo);
+      if (row.in4 || row.in4Photo) punchesHtml += makePunchCard('IN 4', row.in4, row.in4PhotoB64, row.in4Photo);
+      if (row.out4 || row.out4Photo) punchesHtml += makePunchCard('OUT 4', row.out4, row.out4PhotoB64, row.out4Photo);
+      if (row.in5 || row.in5Photo) punchesHtml += makePunchCard('IN 5', row.in5, row.in5PhotoB64, row.in5Photo);
+      if (row.out5 || row.out5Photo) punchesHtml += makePunchCard('OUT 5', row.out5, row.out5PhotoB64, row.out5Photo);
     }
 
     html += `
       <tr style="background-color: ${bgColor}; font-size: 11px; color: #1e293b;">
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">
-          <div style="font-weight: 800; color: #1e293b; font-size: 12px;">${row.name}</div>
-          <div style="color: #64748b; font-size: 10px;">ID: ${row.empId}</div>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; vertical-align: top;">
+          <div style="font-weight: 800; color: #1e293b; font-size: 13px;">${row.name}</div>
+          <div style="color: #64748b; font-size: 11px; margin-top: 2px;">ID: ${row.empId}</div>
         </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${row.branch}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${punchesHtml}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #1e3a8a;">${row.totalHours}h</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #ea580c;">${row.ot}h</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">
-          <span style="background: ${statusBg}; color: ${statusColor}; padding: 3px 8px; border-radius: 10px; font-weight: 800; font-size: 10px; border: 1px solid ${statusColor}44; display: inline-block;">
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569; vertical-align: top;">${row.branch}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: top;">${punchesHtml}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #1e3a8a; vertical-align: top;">${row.totalHours}h</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #ea580c; vertical-align: top;">${row.ot}h</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: top;">
+          <span style="background: ${statusBg}; color: ${statusColor}; padding: 4px 9px; border-radius: 12px; font-weight: 800; font-size: 10.5px; border: 1px solid ${statusColor}44; display: inline-block;">
             ${row.status}
           </span>
         </td>
@@ -418,7 +420,7 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
     </div>
   `;
 
-  const canvas = await renderHtmlToCanvas(html, 1100, 1.5);
+  const canvas = await renderHtmlToCanvas(html, 1150, 1.5);
   saveCanvasToPdf(canvas, `AQSA_Verification_Selfie_Report_${dateStr}.pdf`);
 }
 
