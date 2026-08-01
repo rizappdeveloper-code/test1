@@ -665,12 +665,17 @@ export default function AdminPage() {
   const handleDownloadSelfiePDF = async () => {
     setLoading(true);
     try {
-      const data = await getSummaryDataForPDF();
-      if (!data || data.length === 0) {
-        alert('No attendance data available for the selected date.');
-        return;
+      const logs = await getLiveLogsForPDF();
+      if (logs && logs.length > 0) {
+        await generateSelfiePDF(logs, selectedDate);
+      } else {
+        const data = await getSummaryDataForPDF();
+        if (!data || data.length === 0) {
+          alert('No attendance data available for the selected date.');
+          return;
+        }
+        await generateSelfiePDF(data, selectedDate);
       }
-      await generateSelfiePDF(data, selectedDate);
     } catch (err: any) {
       console.error('Selfie PDF Error:', err);
       alert('Error generating Selfie PDF: ' + (err?.message || err));
