@@ -48,11 +48,33 @@ export function getISTNowISOString(date: Date | string | number = new Date()): s
   const ms = String(d.getMilliseconds()).padStart(3, '0');
   let hr = p.hour;
   if (hr === '24') hr = '00';
-  return `${p.year}-${p.month}-${p.day}T${hr}:${p.minute}:${p.second}.${ms}`;
+  return `${p.year}-${p.month}-${p.day}T${hr}:${p.minute}:${p.second}.${ms}+05:30`;
 }
 
 export function getISTISOString(date: Date | string | number = new Date()): string {
   return getISTNowISOString(date);
+}
+
+/**
+ * Safely parses any timestamp string, Date, or number into Epoch milliseconds.
+ * Handles ISO strings with or without timezone offsets seamlessly.
+ */
+export function parseTimestampToMs(timestamp?: string | Date | number | null): number {
+  if (!timestamp) return 0;
+  if (timestamp instanceof Date) return timestamp.getTime();
+  if (typeof timestamp === 'number') return timestamp;
+  const str = String(timestamp).trim();
+  if (!str) return 0;
+
+  // If ISO string without timezone offset (e.g. 2026-08-01T12:00:00.000), append +05:30 (IST)
+  if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(str)) {
+    const formattedStr = str.replace(' ', 'T');
+    const parsed = new Date(formattedStr + '+05:30').getTime();
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  const standard = new Date(str).getTime();
+  return isNaN(standard) ? 0 : standard;
 }
 
 /**

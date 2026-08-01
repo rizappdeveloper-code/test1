@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Branch, Employee, AttendanceLog } from '../types';
 import { getHaversineDistance, detectPhotoSource } from '../lib/attendance';
-import { formatISTTime, getISTISOString } from '../lib/dateUtils';
+import { formatISTTime, getISTISOString, parseTimestampToMs } from '../lib/dateUtils';
 import { 
   Camera, 
   MapPin, 
@@ -324,15 +324,18 @@ export default function IndexPage() {
         .limit(1);
 
       if (latestLogs && latestLogs.length > 0) {
-        const lastTime = new Date(latestLogs[0].timestamp).getTime();
-        const diffMinutes = (Date.now() - lastTime) / (1000 * 60);
-        if (diffMinutes < 5) {
-          setMessage({
-            type: 'error',
-            text: `Wait Restriction: 5-minute cooldown active. Please wait ${Math.ceil(5 - diffMinutes)} more minute(s).`,
-          });
-          setLoading(false);
-          return;
+        const lastTimeMs = parseTimestampToMs(latestLogs[0].timestamp);
+        if (lastTimeMs > 0) {
+          const diffMinutes = (Date.now() - lastTimeMs) / (1000 * 60);
+          if (diffMinutes >= 0 && diffMinutes < 5) {
+            const waitMin = Math.ceil(5 - diffMinutes);
+            setMessage({
+              type: 'error',
+              text: `Wait Restriction: 5-minute cooldown active. Please wait ${waitMin} more minute(s).`,
+            });
+            setLoading(false);
+            return;
+          }
         }
       }
 
