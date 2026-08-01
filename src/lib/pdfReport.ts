@@ -7,11 +7,19 @@ import { formatISTDateTime, formatISTTime } from './dateUtils';
 async function toDataURL(url: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
+
+  // If already a valid data URI
   if (trimmed.startsWith('data:')) return trimmed;
-  if (trimmed.startsWith('/9j/')) return `data:image/jpeg;base64,${trimmed}`;
-  if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
-  if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
-  if (trimmed.startsWith('UklGR')) return `data:image/webp;base64,${trimmed}`;
+
+  // Handle raw base64 strings (strings not starting with http/https or data:)
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
+    if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
+    if (trimmed.startsWith('UklGR')) return `data:image/webp;base64,${trimmed}`;
+    // Strip possible raw base64 prefix variations if any
+    const cleanBase64 = trimmed.startsWith('/9j/') ? trimmed : trimmed.replace(/^[^a-zA-Z0-9+/=]+/, '');
+    return `data:image/jpeg;base64,${cleanBase64}`;
+  }
 
   try {
     const res = await fetch('/api/proxy-image', {
@@ -57,7 +65,13 @@ async function preparePhoto(url?: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
   const dataUrl = await toDataURL(trimmed);
-  return dataUrl || trimmed;
+  if (dataUrl && (dataUrl.startsWith('data:') || dataUrl.startsWith('http'))) {
+    return dataUrl;
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  return `data:image/jpeg;base64,${trimmed}`;
 }
 
 // Render HTML content safely inside an iframe to avoid Tailwind v4 oklch CSS conflicts
@@ -353,15 +367,11 @@ export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string
       const typeColor = isIN ? '#059669' : '#dc2626';
 
       return `
-        <table style="display: inline-table; width: 144px; margin: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; vertical-align: top; border-collapse: separate; border-spacing: 0; box-sizing: border-box; text-align: center;">
-          <tr>
-            <td style="padding: 6px; text-align: center;">
-              ${imgTag}
-              <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px; text-align: center;">Type: ${label}</div>
-              <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px; text-align: center;">${time || '--:--'}</div>
-            </td>
-          </tr>
-        </table>
+        <div style="display: inline-block; width: 144px; margin: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; vertical-align: top; box-sizing: border-box; text-align: center; padding: 6px;">
+          ${imgTag}
+          <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px; text-align: center;">Type: ${label}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px; text-align: center;">${time || '--:--'}</div>
+        </div>
       `;
     };
 
