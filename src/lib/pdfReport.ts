@@ -8,10 +8,22 @@ async function toDataURL(url: string): Promise<string> {
   if (!url || typeof url !== 'string' || !url.trim()) return '';
   const trimmed = url.trim();
 
-  // If already a valid data URI
+  // 1. If already a valid data URI
   if (trimmed.startsWith('data:')) return trimmed;
 
-  // Resolve relative URLs (e.g., /uploads/...)
+  // 2. Check if raw base64 FIRST before path resolution!
+  if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
+  if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
+  if (trimmed.startsWith('UklGR')) return `data:image/webp;base64,${trimmed}`;
+  if (trimmed.startsWith('/9j/')) return `data:image/jpeg;base64,${trimmed}`;
+  
+  // If it's a raw base64 string without data prefix (not a URL, no domain/path pattern)
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/uploads/') && !trimmed.includes('.jpg') && !trimmed.includes('.png') && !trimmed.includes('.webp')) {
+    const cleanBase64 = trimmed.startsWith('/9j/') ? trimmed : trimmed.replace(/^[^a-zA-Z0-9+/=]+/, '');
+    return `data:image/jpeg;base64,${cleanBase64}`;
+  }
+
+  // 3. Resolve relative URLs (e.g., /uploads/...)
   let fullUrl = trimmed;
   if (trimmed.startsWith('/')) {
     fullUrl = window.location.origin + trimmed;
@@ -59,12 +71,7 @@ async function toDataURL(url: string): Promise<string> {
     });
   }
 
-  // Handle raw base64 strings
-  if (trimmed.startsWith('iVBORw0KG')) return `data:image/png;base64,${trimmed}`;
-  if (trimmed.startsWith('R0lGOD')) return `data:image/gif;base64,${trimmed}`;
-  if (trimmed.startsWith('UklGR')) return `data:image/webp;base64,${trimmed}`;
-  const cleanBase64 = trimmed.startsWith('/9j/') ? trimmed : trimmed.replace(/^[^a-zA-Z0-9+/=]+/, '');
-  return `data:image/jpeg;base64,${cleanBase64}`;
+  return trimmed;
 }
 
 // Safely prepares image URL with fallback to original string if conversion yields empty
@@ -294,82 +301,24 @@ export async function generateFormattedPDF(data: DailySummaryRow[], dateStr: str
   saveCanvasToPdf(canvas, `AQSA_Daily_Summary_${dateStr}.pdf`);
 }
 
-// 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies & Live Selfie PDF format)
-export async function generateSelfiePDF(data: any[], dateStr: string) {
+// 2. Generate PDF with Selfie Proofs (Matching GAS downloadFilteredPDFWithSelfies)
+export async function generateSelfiePDF(data: DailySummaryRow[], dateStr: string) {
   if (!data || data.length === 0) return;
 
-  // Normalize input data into flat punch items (like AttendanceLog)
-  const punchItems: Array<{
-    emp_name: string;
-    emp_id: string;
-    branch_name: string;
-    type: string;
-    timestamp: string;
-    photo_url: string;
-    distance_m?: number;
-  }> = [];
-
-  // Check if input is DailySummaryRow[] or AttendanceLog[]
-  const isSummaryRow = 'empId' in data[0] || 'in1' in data[0];
-
-  if (isSummaryRow) {
-    (data as DailySummaryRow[]).forEach((row) => {
-      let addedAny = false;
-      const addPunch = (type: 'IN' | 'OUT', time: string, photo?: string) => {
-        if (time || photo) {
-          punchItems.push({
-            emp_name: row.name,
-            emp_id: row.empId,
-            branch_name: row.branch,
-            type,
-            timestamp: time,
-            photo_url: photo || '',
-          });
-          addedAny = true;
-        }
-      };
-      addPunch('IN', row.in1, row.in1Photo);
-      addPunch('OUT', row.out1, row.out1Photo);
-      addPunch('IN', row.in2, row.in2Photo);
-      addPunch('OUT', row.out2, row.out2Photo);
-      addPunch('IN', row.in3, row.in3Photo);
-      addPunch('OUT', row.out3, row.out3Photo);
-      addPunch('IN', row.in4, row.in4Photo);
-      addPunch('OUT', row.out4, row.out4Photo);
-      addPunch('IN', row.in5, row.in5Photo);
-      addPunch('OUT', row.out5, row.out5Photo);
-
-      if (!addedAny) {
-        punchItems.push({
-          emp_name: row.name,
-          emp_id: row.empId,
-          branch_name: row.branch,
-          type: row.status === 'Absent' ? 'ABSENT' : 'NO LOGS',
-          timestamp: '--:--',
-          photo_url: '',
-        });
-      }
-    });
-  } else {
-    // Already AttendanceLog[]
-    (data as AttendanceLog[]).forEach((l) => {
-      punchItems.push({
-        emp_name: l.emp_name,
-        emp_id: l.emp_id,
-        branch_name: l.branch_name,
-        type: l.type,
-        timestamp: l.timestamp,
-        photo_url: l.photo_url || '',
-        distance_m: l.distance_m,
-      });
-    });
-  }
-
-  // Pre-convert images to base64 data URLs with fallbacks
-  const processItems = await Promise.all(
-    punchItems.map(async (item) => ({
-      ...item,
-      photoUrlBase64: await preparePhoto(item.photo_url),
+  // Pre-convert images to base64 data URLs while retaining original URLs as fallbacks
+  const processRows = await Promise.all(
+    data.map(async (row) => ({
+      ...row,
+      in1PhotoB64: await preparePhoto(row.in1Photo),
+      out1PhotoB64: await preparePhoto(row.out1Photo),
+      in2PhotoB64: await preparePhoto(row.in2Photo),
+      out2PhotoB64: await preparePhoto(row.out2Photo),
+      in3PhotoB64: await preparePhoto(row.in3Photo),
+      out3PhotoB64: await preparePhoto(row.out3Photo),
+      in4PhotoB64: await preparePhoto(row.in4Photo),
+      out4PhotoB64: await preparePhoto(row.out4Photo),
+      in5PhotoB64: await preparePhoto(row.in5Photo),
+      out5PhotoB64: await preparePhoto(row.out5Photo),
     }))
   );
 
@@ -378,8 +327,8 @@ export async function generateSelfiePDF(data: any[], dateStr: string) {
       <table width="100%" style="border-collapse: collapse;">
         <tr>
           <td>
-            <h1 style="margin: 0; color: #1e3a8a; font-size: 24px; font-weight: 800;">AQSA DAILY ATTENDANCE & SELFIE PROOFS REPORT</h1>
-            <p style="margin: 5px 0 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase;">Daily Summary Verification Logs with Selfie Photos</p>
+            <h1 style="margin: 0; color: #1e3a8a; font-size: 24px; font-weight: 800;">AQSA ATTENDANCE & VERIFICATION REPORT</h1>
+            <p style="margin: 5px 0 0; color: #64748b; font-size: 12px; font-weight: bold; text-transform: uppercase;">Daily Summary Log with Selfie Proofs</p>
           </td>
           <td align="right">
             <div style="background: #f1f5f9; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; width: 140px;">
@@ -391,68 +340,90 @@ export async function generateSelfiePDF(data: any[], dateStr: string) {
       </table>
     </div>
 
-    <div style="margin-bottom: 20px; font-size: 11px; color: #475569;">
-      <strong>Report Type:</strong> Daily Verification Report with Selfie Proofs &nbsp;&nbsp;|&nbsp;&nbsp;
-      <strong>Total Records:</strong> ${processItems.length} &nbsp;&nbsp;|&nbsp;&nbsp;
-      <strong>Generated:</strong> ${formatISTDateTime(new Date())}
-    </div>
-
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
       <thead>
         <tr style="background-color: #1e293b; color: #ffffff; font-size: 12px;">
-          <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 25%;">Employee Details</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 15%;">Branch</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 22%;">Punch Information</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 15%;">Type</th>
-          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 23%;">Selfie Photo Proof</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: left; width: 18%;">Employee Details</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 12%;">Branch</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 52%;">Shift Punches & Selfie Proofs</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">Hours</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">OT</th>
+          <th style="padding: 10px; border: 1px solid #334155; text-align: center; width: 6%;">Status</th>
         </tr>
       </thead>
       <tbody>
   `;
 
-  processItems.forEach((item, index) => {
+  processRows.forEach((row, index) => {
     const bgColor = index % 2 === 0 ? '#ffffff' : '#f8fafc';
-    const isIN = item.type === 'IN';
-    const isAbsent = item.type === 'ABSENT' || item.type === 'NO LOGS';
-    const typeColor = isAbsent ? '#dc2626' : isIN ? '#059669' : '#dc2626';
-    const typeBg = isAbsent ? '#fef2f2' : isIN ? '#ecfdf5' : '#fef2f2';
+    let statusColor = '#059669';
+    let statusBg = '#ecfdf5';
+    if (row.status === 'Absent') {
+      statusColor = '#dc2626';
+      statusBg = '#fef2f2';
+    } else if (row.status === 'Missing OUT') {
+      statusColor = '#d97706';
+      statusBg = '#fffbeb';
+    }
 
-    const formattedTime = item.timestamp.includes('T')
-      ? formatISTTime(item.timestamp, true)
-      : item.timestamp || '--:--';
+    const formatPunchTime = (t: string) => {
+      if (!t) return '--:--';
+      if (t.includes('T')) return formatISTTime(t, true);
+      return t;
+    };
 
-    const photoUrl = item.photoUrlBase64 || item.photo_url || '';
-    const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
+    const makePunchCard = (label: string, time: string, photoB64?: string, photoOrig?: string) => {
+      if (!time && !photoB64 && !photoOrig) return '';
+      const photoUrl = photoB64 || photoOrig || '';
+      const validPhoto = photoUrl && photoUrl.trim() !== '' ? photoUrl : null;
+      const imgTag = validPhoto
+        ? `<img src="${validPhoto}" width="145" height="145" style="width: 145px; height: 145px; object-fit: cover; border-radius: 8px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
+        : `<div style="width: 145px; height: 145px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
 
-    const imgTag = validPhoto
-      ? `<img src="${validPhoto}" width="160" height="160" style="width: 160px; height: 160px; object-fit: cover; border-radius: 10px; border: 1.5px solid #cbd5e1; display: block; margin: 0 auto;" />`
-      : `<div style="width: 160px; height: 160px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: bold; margin: 0 auto;">No Photo</div>`;
+      const isIN = label.toUpperCase().includes('IN');
+      const typeColor = isIN ? '#059669' : '#dc2626';
+      const timeStr = formatPunchTime(time);
 
-    const selfieBlock = `
-      <div style="text-align: center; padding: 2px;">
-        ${imgTag}
-        <div style="font-size: 10.5px; font-weight: 800; color: ${typeColor}; margin-top: 5px;">Type: ${item.type}</div>
-        <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-top: 2px;">${formattedTime}</div>
-      </div>
-    `;
+      return `
+        <div style="display: inline-block; width: 160px; margin: 4px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; vertical-align: top; box-sizing: border-box; text-align: center; padding: 6px;">
+          ${imgTag}
+          <div style="font-size: 11px; font-weight: 800; color: ${typeColor}; margin-top: 5px; text-align: center;">Type: ${label}</div>
+          <div style="font-size: 10.5px; font-weight: 700; color: #1e3a8a; margin-top: 2px; text-align: center;">Time: ${timeStr}</div>
+        </div>
+      `;
+    };
+
+    let punchesHtml = '';
+    if (row.status === 'Absent') {
+      punchesHtml = `<span style="color: #cbd5e1; font-style: italic; font-size: 11px;">Employee Absent</span>`;
+    } else {
+      punchesHtml += makePunchCard('IN 1', row.in1, row.in1PhotoB64, row.in1Photo);
+      punchesHtml += makePunchCard('OUT 1', row.out1, row.out1PhotoB64, row.out1Photo);
+      if (row.in2 || row.in2Photo) punchesHtml += makePunchCard('IN 2', row.in2, row.in2PhotoB64, row.in2Photo);
+      if (row.out2 || row.out2Photo) punchesHtml += makePunchCard('OUT 2', row.out2, row.out2PhotoB64, row.out2Photo);
+      if (row.in3 || row.in3Photo) punchesHtml += makePunchCard('IN 3', row.in3, row.in3PhotoB64, row.in3Photo);
+      if (row.out3 || row.out3Photo) punchesHtml += makePunchCard('OUT 3', row.out3, row.out3PhotoB64, row.out3Photo);
+      if (row.in4 || row.in4Photo) punchesHtml += makePunchCard('IN 4', row.in4, row.in4PhotoB64, row.in4Photo);
+      if (row.out4 || row.out4Photo) punchesHtml += makePunchCard('OUT 4', row.out4, row.out4PhotoB64, row.out4Photo);
+      if (row.in5 || row.in5Photo) punchesHtml += makePunchCard('IN 5', row.in5, row.in5PhotoB64, row.in5Photo);
+      if (row.out5 || row.out5Photo) punchesHtml += makePunchCard('OUT 5', row.out5, row.out5PhotoB64, row.out5Photo);
+    }
 
     html += `
       <tr style="background-color: ${bgColor}; font-size: 11px; color: #1e293b;">
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; vertical-align: middle;">
-          <div style="font-weight: 800; color: #1e293b; font-size: 12px;">${item.emp_name}</div>
-          <div style="color: #64748b; font-size: 10px;">ID: ${item.emp_id}</div>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; vertical-align: top;">
+          <div style="font-weight: 800; color: #1e293b; font-size: 13px;">${row.name}</div>
+          <div style="color: #64748b; font-size: 11px; margin-top: 2px;">ID: ${row.empId}</div>
         </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569; vertical-align: middle;">${item.branch_name}</td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; line-height: 1.4; vertical-align: middle;">
-          <div><b>Punch Time:</b> ${formattedTime}</div>
-          ${item.distance_m ? `<div style="font-size: 10px; color: #64748b;">Distance: ${item.distance_m}m</div>` : ''}
-        </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: middle;">
-          <span style="background: ${typeBg}; color: ${typeColor}; padding: 4px 10px; border-radius: 12px; font-weight: 800; font-size: 10px; border: 1px solid ${typeColor}44; display: inline-block;">
-            SHIFT-${item.type}
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569; vertical-align: top;">${row.branch}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: top;">${punchesHtml}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #1e3a8a; vertical-align: top;">${row.totalHours}h</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 700; color: #ea580c; vertical-align: top;">${row.ot}h</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: top;">
+          <span style="background: ${statusBg}; color: ${statusColor}; padding: 4px 9px; border-radius: 12px; font-weight: 800; font-size: 10.5px; border: 1px solid ${statusColor}44; display: inline-block;">
+            ${row.status}
           </span>
         </td>
-        <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; vertical-align: middle;">${selfieBlock}</td>
       </tr>
     `;
   });
@@ -461,11 +432,11 @@ export async function generateSelfiePDF(data: any[], dateStr: string) {
       </tbody>
     </table>
     <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; text-align: center;">
-      Generated from AQSA Enterprise Portal | Verification Security Key: AQSA-SELFIE-${Math.random().toString(36).substring(2, 9).toUpperCase()}
+      Verification Security Key: AQSA-SELFIE-${Math.random().toString(36).substring(2, 9).toUpperCase()}
     </div>
   `;
 
-  const canvas = await renderHtmlToCanvas(html, 1050, 1.5);
+  const canvas = await renderHtmlToCanvas(html, 1150, 1.5);
   saveCanvasToPdf(canvas, `AQSA_Verification_Selfie_Report_${dateStr}.pdf`);
 }
 
